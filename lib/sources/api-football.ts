@@ -1,4 +1,3 @@
-import { env, requireEnv } from "@/lib/config/env";
 import type { AccountConfig, FootballEvent } from "@/lib/events/types";
 import { cachedJson } from "@/lib/db/cache";
 import type { SourceAdapter } from "@/lib/sources/source";
@@ -9,7 +8,7 @@ export class ApiFootballAdapter implements SourceAdapter {
   name = "api-football" as const;
 
   async fetch(account: AccountConfig): Promise<FootballEvent[]> {
-    if (!env.API_FOOTBALL_KEY) return [];
+    if (!this.apiKey(account)) return [];
     const [fixtures, injuries, standings, transfers, squad] = await Promise.all([
       this.fetchFixtures(account),
       this.fetchInjuries(account),
@@ -20,21 +19,28 @@ export class ApiFootballAdapter implements SourceAdapter {
     return [...fixtures, ...injuries, ...standings, ...transfers, ...squad];
   }
 
-  private async request<T>(path: string, cacheKey: string, ttlSeconds: number): Promise<ApiFootballEnvelope<T>> {
+  private async request<T>(account: AccountConfig, path: string, cacheKey: string, ttlSeconds: number): Promise<ApiFootballEnvelope<T>> {
     const url = new URL(`https://v3.football.api-sports.io/${path}`);
+    const apiKey = this.apiKey(account);
+    if (!apiKey) return {};
     return cachedJson<ApiFootballEnvelope<T>>(cacheKey, ttlSeconds, async () => {
       const response = await fetch(url, {
-        headers: { "x-apisports-key": requireEnv("API_FOOTBALL_KEY") }
+        headers: { "x-apisports-key": apiKey }
       });
       if (!response.ok) throw new Error(`API-Football failed: ${response.status} ${await response.text()}`);
       return response.json() as Promise<ApiFootballEnvelope<T>>;
     });
   }
 
+  private apiKey(account: AccountConfig) {
+    return account.apiFootballKey;
+  }
+
   private async fetchFixtures(account: AccountConfig): Promise<FootballEvent[]> {
     if (!account.teamId) return [];
     const season = new Date().getUTCFullYear();
     const payload = await this.request<FixtureRow>(
+      account,
       `fixtures?team=${account.teamId}&season=${season}&last=5&next=5`,
       `api-football:fixtures:${account.slug}:${season}`,
       900
@@ -63,6 +69,7 @@ export class ApiFootballAdapter implements SourceAdapter {
     if (!account.teamId) return [];
     const season = new Date().getUTCFullYear();
     const payload = await this.request<InjuryRow>(
+      account,
       `injuries?team=${account.teamId}&season=${season}`,
       `api-football:injuries:${account.slug}:${season}`,
       1800
@@ -84,6 +91,7 @@ export class ApiFootballAdapter implements SourceAdapter {
     if (!account.leagueId) return [];
     const season = new Date().getUTCFullYear();
     const payload = await this.request<StandingEnvelope>(
+      account,
       `standings?league=${account.leagueId}&season=${season}`,
       `api-football:standings:${account.slug}:${season}`,
       21600
@@ -108,6 +116,7 @@ export class ApiFootballAdapter implements SourceAdapter {
   private async fetchTransfers(account: AccountConfig): Promise<FootballEvent[]> {
     if (!account.teamId) return [];
     const payload = await this.request<TransferRow>(
+      account,
       `transfers?team=${account.teamId}`,
       `api-football:transfers:${account.slug}`,
       3600
@@ -130,6 +139,7 @@ export class ApiFootballAdapter implements SourceAdapter {
   private async fetchSquad(account: AccountConfig): Promise<FootballEvent[]> {
     if (!account.teamId) return [];
     const payload = await this.request<SquadRow>(
+      account,
       `players/squads?team=${account.teamId}`,
       `api-football:squad:${account.slug}`,
       21600

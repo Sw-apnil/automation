@@ -75,9 +75,20 @@ export async function getAnalytics() {
 
 export async function getAccountRows() {
   if (!hasSupabase()) return [];
-  const { data, error } = await getServiceSupabase().from("accounts").select("*").order("name");
+  const { data, error } = await getServiceSupabase()
+    .from("accounts")
+    .select(
+      "id, name, slug, keywords, hashtags, style, character_limit, relevance_threshold, max_posts_per_run, enabled, groq_api_key, groq_model, groq_temperature, groq_max_tokens, buffer_access_token, buffer_profiles, buffer_channel_ids, platforms, schedule_interval_minutes, schedule_time_slots, last_run_at, news_api_key, api_football_key, team_id, league_id, logo_url, created_at, updated_at"
+    )
+    .order("name");
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map((account) => ({
+    ...account,
+    groq_api_key: Boolean(account.groq_api_key),
+    buffer_access_token: Boolean(account.buffer_access_token),
+    news_api_key: Boolean(account.news_api_key),
+    api_football_key: Boolean(account.api_football_key)
+  }));
 }
 
 function hasSupabase() {

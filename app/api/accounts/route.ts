@@ -17,12 +17,21 @@ const accountSchema = z.object({
   relevanceThreshold: z.number().int().min(0).max(10).default(7),
   maxPostsPerRun: z.number().int().min(1).max(10).default(3),
   enabled: z.boolean().default(true),
-  bufferProfiles: z.array(z.string()).default([]),
+  groqApiKey: z.string().min(1),
+  groqModel: z.string().min(1),
+  groqTemperature: z.number().min(0).max(2).default(0.85),
+  groqMaxTokens: z.number().int().min(32).max(1000).default(180),
+  bufferAccessToken: z.string().min(1),
+  bufferChannelIds: z.array(z.string().min(1)).min(1),
   platforms: z.array(z.enum(["x", "threads"])).default(["x"]),
+  scheduleIntervalMinutes: z.number().int().min(5).max(1440).default(15),
+  scheduleTimeSlots: z.array(z.string()).default([]),
+  newsApiKey: z.string().min(1),
+  apiFootballKey: z.string().min(1),
   teamId: z.number().int().nullable().optional(),
   leagueId: z.number().int().nullable().optional(),
   logoUrl: z.string().url().nullable().optional(),
-  promptTemplate: z.string().optional()
+  promptTemplate: z.string().min(20)
 });
 
 export async function POST(request: Request) {
@@ -40,8 +49,18 @@ export async function POST(request: Request) {
       relevance_threshold: input.relevanceThreshold,
       max_posts_per_run: input.maxPostsPerRun,
       enabled: input.enabled,
-      buffer_profiles: input.bufferProfiles,
+      groq_api_key: input.groqApiKey,
+      groq_model: input.groqModel,
+      groq_temperature: input.groqTemperature,
+      groq_max_tokens: input.groqMaxTokens,
+      buffer_access_token: input.bufferAccessToken,
+      buffer_channel_ids: input.bufferChannelIds,
+      buffer_profiles: input.bufferChannelIds,
       platforms: input.platforms,
+      schedule_interval_minutes: input.scheduleIntervalMinutes,
+      schedule_time_slots: input.scheduleTimeSlots,
+      news_api_key: input.newsApiKey,
+      api_football_key: input.apiFootballKey,
       team_id: input.teamId ?? null,
       league_id: input.leagueId ?? null,
       logo_url: input.logoUrl ?? null
@@ -51,13 +70,11 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  if (input.promptTemplate) {
-    await supabase.from("account_prompts").insert({
-      account_id: data.id,
-      name: "default",
-      prompt_template: input.promptTemplate
-    });
-  }
+  await supabase.from("account_prompts").insert({
+    account_id: data.id,
+    name: "default",
+    prompt_template: input.promptTemplate
+  });
 
   return NextResponse.json({ id: data.id }, { status: 201 });
 }

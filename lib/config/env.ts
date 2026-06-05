@@ -4,11 +4,6 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-  GROQ_API_KEY: z.string().optional(),
-  GROQ_MODEL: z.string().optional(),
-  BUFFER_ACCESS_TOKEN: z.string().optional(),
-  API_FOOTBALL_KEY: z.string().optional(),
-  NEWS_API_KEY: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   ADMIN_USERNAME: z.string().optional(),
   ADMIN_PASSWORD: z.string().optional()

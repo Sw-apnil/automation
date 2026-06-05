@@ -8,7 +8,7 @@ Production-oriented Next.js 15 app for collecting football events, scoring relev
 - Supabase PostgreSQL
 - Groq chat completions
 - API-Football and NewsAPI source adapters
-- Buffer publishing for X and Threads profiles
+- Buffer publishing through connected Buffer channels
 - Vercel Cron 15-minute scheduler
 - Docker support
 
@@ -34,7 +34,9 @@ Or paste `supabase/migrations/001_initial_schema.sql` into the Supabase SQL edit
 cp .env.example .env.local
 ```
 
-Fill all provider keys. `SUPABASE_SERVICE_ROLE_KEY` is server-only and must never be exposed to client code.
+Fill Supabase keys first. `SUPABASE_SERVICE_ROLE_KEY` is server-only and must never be exposed to client code.
+
+Groq, Buffer, NewsAPI, and API-Football values are required per account in the `accounts` table. They are not read from `.env.local`.
 
 Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in production to protect the dashboard and non-cron API routes with Basic Auth.
 
@@ -69,8 +71,12 @@ Accounts live in the `accounts` table. Add a new account by inserting a row with
 - `character_limit`
 - `relevance_threshold`
 - `max_posts_per_run`
-- `buffer_profiles`
-- `platforms`
+- `buffer_channel_ids`
+- `schedule_interval_minutes`
+- optional `schedule_time_slots`
+- `groq_api_key`, `groq_model`, `groq_temperature`, `groq_max_tokens`
+- `buffer_access_token`
+- `news_api_key`, `api_football_key`
 - optional `team_id`, `league_id`, `logo_url`
 
 Prompts live in `account_prompts`, so each account has its own personality without code changes. The account prompt controls voice and style; event fields such as `{title}`, `{description}`, `{category}`, and `{publishedAt}` control the substance.
@@ -85,6 +91,15 @@ Account API:
 Deployment readiness:
 
 - `GET /api/health` reports which integrations are configured without returning secret values.
+
+Frontend account setup:
+
+1. Open `/dashboard/accounts`.
+2. Use `Create Account`.
+3. Fill account identity, keywords, hashtags, style, prompt, Groq key/model, NewsAPI key, API-Football key, Buffer token, and Buffer channel IDs.
+4. Set `Run every minutes`, for example `15`, `30`, or `60`.
+5. Optionally set exact `Schedule time slots` as comma-separated `HH:MM` values, for example `09:00, 13:30, 21:00`.
+6. Save. The fixed Vercel cron wakes the app every 15 minutes; the app checks these account-level schedule settings and only runs accounts that are due.
 
 ## Image Priority
 
@@ -107,7 +122,11 @@ The pipeline checks exact source IDs, headline hashes, same article URLs, and re
 
 ## Buffer
 
-Set `BUFFER_ACCESS_TOKEN` and add Buffer profile IDs to `accounts.buffer_profiles`. When the token is missing, publishing returns dry-run IDs so local development does not accidentally post.
+Set each account's `buffer_access_token` and channel IDs in `accounts.buffer_channel_ids`. A Buffer channel is one connected destination inside Buffer, such as a specific X account, Threads account, Facebook page, etc. Buffer already knows the platform for each channel ID, so the app only needs the channel IDs to publish.
+
+Publishing uses Buffer's GraphQL `createPost` mutation with `channelId`, `schedulingType: automatic`, and `mode: addToQueue`.
+
+When a required Buffer token or channel ID is missing, the account is treated as misconfigured and the failure is written to `audit_logs`.
 
 ## Docker
 

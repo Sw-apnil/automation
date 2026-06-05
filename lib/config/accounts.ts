@@ -12,8 +12,19 @@ type AccountRow = {
   relevance_threshold: number;
   max_posts_per_run: number | null;
   enabled: boolean;
+  groq_api_key: string | null;
+  groq_model: string | null;
+  groq_temperature: number | string | null;
+  groq_max_tokens: number | null;
+  buffer_access_token: string | null;
   buffer_profiles: string[];
+  buffer_channel_ids: string[] | null;
   platforms: string[];
+  schedule_interval_minutes: number | null;
+  schedule_time_slots: string[] | null;
+  last_run_at: string | null;
+  news_api_key: string | null;
+  api_football_key: string | null;
   team_id: number | null;
   league_id: number | null;
   logo_url: string | null;
@@ -55,8 +66,18 @@ function mapAccount(row: AccountRow): AccountConfig {
     relevanceThreshold: row.relevance_threshold,
     maxPostsPerRun: row.max_posts_per_run ?? 3,
     enabled: row.enabled,
-    bufferProfiles: row.buffer_profiles ?? [],
+    groqApiKey: row.groq_api_key,
+    groqModel: row.groq_model,
+    groqTemperature: row.groq_temperature == null ? 0.85 : Number(row.groq_temperature),
+    groqMaxTokens: row.groq_max_tokens ?? 180,
+    bufferAccessToken: row.buffer_access_token,
+    bufferChannelIds: row.buffer_channel_ids ?? row.buffer_profiles ?? [],
     platforms: row.platforms ?? ["x"],
+    scheduleIntervalMinutes: row.schedule_interval_minutes ?? 15,
+    scheduleTimeSlots: row.schedule_time_slots ?? [],
+    lastRunAt: row.last_run_at,
+    newsApiKey: row.news_api_key,
+    apiFootballKey: row.api_football_key,
     teamId: row.team_id,
     leagueId: row.league_id,
     logoUrl: row.logo_url,

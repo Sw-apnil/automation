@@ -35,16 +35,22 @@ export async function runEvery15MinPipeline(): Promise<PipelineResult> {
     errors: 0
   };
 
-  const accounts = await getEnabledAccounts();
+  const enabledAccounts = await getEnabledAccounts();
+  const accounts = enabledAccounts.filter(isAccountDue);
   result.accounts = accounts.length;
 
   for (const account of accounts) {
     try {
+      if (!(await validateAccountConfig(account))) {
+        result.errors += 1;
+        continue;
+      }
       const accountResult = await processAccount(account);
       result.eventsCollected += accountResult.eventsCollected;
       result.postsGenerated += accountResult.postsGenerated;
       result.duplicatesRemoved += accountResult.duplicatesRemoved;
       result.skippedLowScore += accountResult.skippedLowScore;
+      await markAccountRun(account.id);
     } catch (error) {
       result.errors += 1;
       await auditLog({
@@ -59,6 +65,51 @@ export async function runEvery15MinPipeline(): Promise<PipelineResult> {
 
   result.postsPublished = await publishDuePosts();
   return result;
+}
+
+async function validateAccountConfig(account: AccountConfig) {
+  const missing = [
+    !account.groqApiKey ? "groq_api_key" : null,
+    !account.groqModel ? "groq_model" : null,
+    !account.bufferAccessToken ? "buffer_access_token" : null,
+    account.bufferChannelIds.length === 0 ? "buffer_channel_ids" : null,
+    !account.newsApiKey ? "news_api_key" : null,
+    !account.apiFootballKey ? "api_football_key" : null,
+    !account.promptTemplate ? "active account prompt" : null
+  ].filter(Boolean);
+
+  if (missing.length === 0) return true;
+
+  await auditLog({
+    accountId: account.id,
+    level: "error",
+    eventType: "account.config_missing",
+    message: `Missing required account configuration: ${missing.join(", ")}`,
+    metadata: { account: account.slug, missing }
+  });
+  return false;
+}
+
+function isAccountDue(account: AccountConfig) {
+  if (account.scheduleTimeSlots.length > 0 && !isInsideScheduleSlot(account.scheduleTimeSlots)) return false;
+  if (!account.lastRunAt) return true;
+  const elapsedMinutes = (Date.now() - new Date(account.lastRunAt).getTime()) / 60_000;
+  return elapsedMinutes >= account.scheduleIntervalMinutes;
+}
+
+function isInsideScheduleSlot(slots: string[]) {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  return slots.some((slot) => {
+    const [hour, minute] = slot.split(":").map(Number);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return false;
+    const slotMinutes = hour * 60 + minute;
+    return Math.abs(currentMinutes - slotMinutes) <= 7;
+  });
+}
+
+async function markAccountRun(accountId: string) {
+  await getServiceSupabase().from("accounts").update({ last_run_at: new Date().toISOString() }).eq("id", accountId);
 }
 
 async function processAccount(account: AccountConfig) {
@@ -203,7 +254,7 @@ async function publishDuePosts() {
   const supabase = getServiceSupabase();
   const { data: rows, error } = await supabase
     .from("post_queue")
-    .select("*, accounts(platforms, buffer_profiles)")
+    .select("*, accounts(platforms, buffer_channel_ids, buffer_profiles, buffer_access_token)")
     .in("status", ["pending", "failed"])
     .lte("next_attempt_at", new Date().toISOString())
     .lt("retry_count", 3)
@@ -214,27 +265,36 @@ async function publishDuePosts() {
   let published = 0;
 
   for (const row of rows ?? []) {
-    const account = row.accounts as { platforms: string[]; buffer_profiles: string[] } | null;
-    const profiles = account?.buffer_profiles ?? [];
+    const account = row.accounts as { platforms: string[]; buffer_channel_ids?: string[] | null; buffer_profiles?: string[] | null; buffer_access_token?: string | null } | null;
+    const channelIds = account?.buffer_channel_ids?.length ? account.buffer_channel_ids : account?.buffer_profiles ?? [];
 
-    if (profiles.length === 0) {
-      await supabase.from("post_queue").update({ status: "skipped", error_message: "No Buffer profiles configured" }).eq("id", row.id);
+    if (channelIds.length === 0) {
+      await supabase.from("post_queue").update({ status: "skipped", error_message: "No Buffer channels configured" }).eq("id", row.id);
+      continue;
+    }
+
+    if (!account?.buffer_access_token) {
+      await supabase
+        .from("post_queue")
+        .update({ status: "failed", error_message: "No Buffer access token configured for account" })
+        .eq("id", row.id);
       continue;
     }
 
     try {
       await supabase.from("post_queue").update({ status: "publishing" }).eq("id", row.id);
-      for (const [index, profileId] of profiles.entries()) {
+      for (const [index, channelId] of channelIds.entries()) {
         const { postId } = await publishToBuffer({
-          profileId,
+          channelId,
           text: row.content,
-          imageUrl: row.image_url
+          imageUrl: row.image_url,
+          accessToken: account.buffer_access_token
         });
         await supabase.from("published_posts").insert({
           queue_id: row.id,
           account_id: row.account_id,
           platform: platformFromProfile(account?.platforms ?? [], index),
-          buffer_profile_id: profileId,
+          buffer_channel_id: channelId,
           post_id: postId
         });
       }

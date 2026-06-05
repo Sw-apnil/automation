@@ -1,31 +1,68 @@
-import { env, requireEnv } from "@/lib/config/env";
 import { randomUUID } from "crypto";
 
 export async function publishToBuffer(input: {
-  profileId: string;
+  channelId: string;
   text: string;
   imageUrl?: string | null;
+  accessToken: string;
 }): Promise<{ postId: string }> {
-  if (!env.BUFFER_ACCESS_TOKEN) {
-    return { postId: `dry-run-${randomUUID()}` };
-  }
+  const assets = input.imageUrl
+    ? [
+        {
+          image: {
+            url: input.imageUrl
+          }
+        }
+      ]
+    : [];
 
-  const body = new URLSearchParams();
-  body.set("profile_ids[]", input.profileId);
-  body.set("text", input.text);
-  body.set("now", "true");
-  if (input.imageUrl) body.set("media[photo]", input.imageUrl);
-
-  const response = await fetch("https://api.bufferapp.com/1/updates/create.json", {
+  const response = await fetch("https://api.buffer.com", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${requireEnv("BUFFER_ACCESS_TOKEN")}`,
-      "Content-Type": "application/x-www-form-urlencoded"
+      Authorization: `Bearer ${input.accessToken}`,
+      "Content-Type": "application/json"
     },
-    body
+    body: JSON.stringify({
+      query: `
+        mutation CreatePost($input: CreatePostInput!) {
+          createPost(input: $input) {
+            ... on PostActionSuccess {
+              post {
+                id
+                text
+              }
+            }
+            ... on MutationError {
+              message
+            }
+          }
+        }
+      `,
+      variables: {
+        input: {
+          text: input.text,
+          channelId: input.channelId,
+          schedulingType: "automatic",
+          mode: "addToQueue",
+          assets
+        }
+      }
+    })
   });
 
   if (!response.ok) throw new Error(`Buffer failed: ${response.status} ${await response.text()}`);
-  const payload = (await response.json()) as { updates?: { id: string }[] };
-  return { postId: payload.updates?.[0]?.id ?? randomUUID() };
+  const payload = (await response.json()) as BufferGraphqlResponse;
+  const result = payload.data?.createPost;
+  if (result?.message) throw new Error(`Buffer mutation failed: ${result.message}`);
+  return { postId: result?.post?.id ?? randomUUID() };
 }
+
+type BufferGraphqlResponse = {
+  data?: {
+    createPost?: {
+      post?: { id: string; text?: string };
+      message?: string;
+    };
+  };
+  errors?: { message: string }[];
+};

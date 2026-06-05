@@ -1,4 +1,3 @@
-import { env, requireEnv } from "@/lib/config/env";
 import type { AccountConfig, FootballEvent } from "@/lib/events/types";
 import { cachedJson } from "@/lib/db/cache";
 import type { SourceAdapter } from "@/lib/sources/source";
@@ -18,14 +17,15 @@ export class NewsApiAdapter implements SourceAdapter {
   name = "newsapi" as const;
 
   async fetch(account: AccountConfig): Promise<FootballEvent[]> {
-    if (!env.NEWS_API_KEY) return [];
+    const apiKey = account.newsApiKey;
+    if (!apiKey) return [];
     const query = account.keywords.map((keyword) => `"${keyword}"`).join(" OR ");
     const url = new URL("https://newsapi.org/v2/everything");
     url.searchParams.set("q", `${query} football`);
     url.searchParams.set("language", "en");
     url.searchParams.set("sortBy", "publishedAt");
     url.searchParams.set("pageSize", "20");
-    url.searchParams.set("apiKey", requireEnv("NEWS_API_KEY"));
+    url.searchParams.set("apiKey", apiKey);
 
     const payload = await cachedJson<NewsApiResponse>(`newsapi:${account.slug}`, 900, async () => {
       const response = await fetch(url);

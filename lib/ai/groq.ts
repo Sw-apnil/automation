@@ -1,4 +1,3 @@
-import { env, requireEnv } from "@/lib/config/env";
 import type { AccountConfig, FootballEvent } from "@/lib/events/types";
 
 type GroqResponse = {
@@ -6,30 +5,33 @@ type GroqResponse = {
 };
 
 export async function generatePostContent(event: FootballEvent, account: AccountConfig): Promise<string> {
-  if (!env.GROQ_API_KEY) return fallbackContent(event, account);
+  const apiKey = account.groqApiKey;
+  if (!apiKey) throw new Error(`Missing Groq API key for account: ${account.slug}`);
+  if (!account.groqModel) throw new Error(`Missing Groq model for account: ${account.slug}`);
 
   const prompt = buildPrompt(event, account);
-  let content = postProcess(await callGroq(prompt), account.characterLimit);
+  let content = postProcess(await callGroq(prompt, account, apiKey), account.characterLimit);
 
   if (isPoorQuality(content)) {
     const retryPrompt = `${prompt}
 
 Rewrite once. Make it sound less robotic and less journalistic. Use a real fan voice, short punchy lines, and do not start with phrases like breaking news or according to reports.`;
-    content = postProcess(await callGroq(retryPrompt), account.characterLimit);
+    content = postProcess(await callGroq(retryPrompt, account, apiKey), account.characterLimit);
   }
 
-  return isPoorQuality(content) ? fallbackContent(event, account) : content;
+  if (isPoorQuality(content)) throw new Error(`Groq output failed quality checks for account: ${account.slug}`);
+  return content;
 }
 
-async function callGroq(prompt: string) {
+async function callGroq(prompt: string, account: AccountConfig, apiKey: string) {
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${requireEnv("GROQ_API_KEY")}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: env.GROQ_MODEL ?? "llama-3.1-70b-versatile",
+      model: account.groqModel,
       messages: [
         {
           role: "system",
@@ -38,18 +40,14 @@ async function callGroq(prompt: string) {
         },
         { role: "user", content: prompt }
       ],
-      temperature: 0.85,
-      max_tokens: 180
+      temperature: account.groqTemperature,
+      max_tokens: account.groqMaxTokens
     })
   });
 
   if (!response.ok) throw new Error(`Groq failed: ${response.status} ${await response.text()}`);
   const payload = (await response.json()) as GroqResponse;
   return payload.choices?.[0]?.message?.content?.trim() ?? "";
-}
-
-function fallbackContent(event: FootballEvent, account: AccountConfig) {
-  return trimToLimit(`${event.title}. Big one for ${account.name} fans, emotions are properly up right now.`, account.characterLimit);
 }
 
 function buildPrompt(event: FootballEvent, account: AccountConfig) {
