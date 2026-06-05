@@ -1,0 +1,18 @@
+{
+  "/api/accounts/[id]/route": "/api/accounts/[id]",
+  "/api/accounts/route": "/api/accounts",
+  "/api/analytics/route": "/api/analytics",
+  "/api/events/route": "/api/events",
+  "/api/health/route": "/api/health",
+  "/api/published/route": "/api/published",
+  "/api/queue/route": "/api/queue",
+  "/_not-found/page": "/_not-found",
+  "/api/cron/every-15-min/route": "/api/cron/every-15-min",
+  "/page": "/",
+  "/dashboard/analytics/page": "/dashboard/analytics",
+  "/dashboard/page": "/dashboard",
+  "/dashboard/queue/page": "/dashboard/queue",
+  "/dashboard/published/page": "/dashboard/published",
+  "/dashboard/sources/page": "/dashboard/sources",
+  "/dashboard/accounts/page": "/dashboard/accounts"
+}

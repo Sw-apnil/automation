@@ -9,7 +9,7 @@ Production-oriented Next.js 15 app for collecting football events, scoring relev
 - Groq chat completions
 - API-Football and NewsAPI source adapters
 - Buffer publishing through connected Buffer channels
-- Vercel Cron 15-minute scheduler
+- GitHub Actions 15-minute scheduler
 - Docker support
 
 ## Setup
@@ -52,7 +52,7 @@ Open `http://localhost:3000/dashboard`.
 
 `GET /api/cron/every-15-min` runs:
 
-Fetch News/API-Football events every 15 minutes -> normalize events -> score relevance -> skip low-score events before AI -> dedupe by event ID, headline hash, similar headline, and article URL -> select best candidates by relevance, recency, keyword strength, image availability, similarity, and category importance -> generate Groq fan post -> clean/retry weak output -> rotate hashtags -> select image -> queue -> publish due Buffer posts -> record posts and audit logs.
+GitHub Actions calls the deployed cron endpoint every 15 minutes. The app then fetches News/API-Football events -> normalizes events -> scores relevance -> skips low-score events before AI -> dedupes by event ID, headline hash, similar headline, and article URL -> selects best candidates by relevance, recency, keyword strength, image availability, similarity, and category importance -> generates Groq fan post -> cleans/retries weak output -> rotates hashtags -> selects image -> queues -> publishes due Buffer posts -> records posts and audit logs.
 
 If `CRON_SECRET` is set, call the cron endpoint with:
 
@@ -99,7 +99,7 @@ Frontend account setup:
 3. Fill account identity, keywords, hashtags, style, prompt, Groq key/model, NewsAPI key, API-Football key, Buffer token, and Buffer channel IDs.
 4. Set `Run every minutes`, for example `15`, `30`, or `60`.
 5. Optionally set exact `Schedule time slots` as comma-separated `HH:MM` values, for example `09:00, 13:30, 21:00`.
-6. Save. The fixed Vercel cron wakes the app every 15 minutes; the app checks these account-level schedule settings and only runs accounts that are due.
+6. Save. GitHub Actions wakes the app every 15 minutes; the app checks these account-level schedule settings and only runs accounts that are due.
 
 ## Image Priority
 
@@ -135,12 +135,17 @@ docker build -t football-social-automation .
 docker run --env-file .env.local -p 3000:3000 football-social-automation
 ```
 
-## Vercel
+## Vercel + GitHub Actions
 
 1. Import the repo into Vercel.
 2. Add all environment variables from `.env.example`.
 3. Deploy.
-4. `vercel.json` schedules `/api/cron/every-15-min` every 15 minutes with `*/15 * * * *`.
+4. In GitHub repository settings, add Actions secrets:
+   - `APP_URL`: your deployed Vercel URL, for example `https://your-app.vercel.app`
+   - `CRON_SECRET`: the same value used in Vercel env vars
+5. GitHub Actions workflow `.github/workflows/every-15-min.yml` calls `/api/cron/every-15-min` every 15 minutes.
+
+Vercel Cron is intentionally not used because the free tier may restrict high-frequency schedules.
 
 ## Operational Notes
 

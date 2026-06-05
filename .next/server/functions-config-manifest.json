@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/cron/every-15-min": {
+      "maxDuration": 300
+    }
+  }
+}
