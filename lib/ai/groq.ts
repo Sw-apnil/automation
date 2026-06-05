@@ -1,0 +1,98 @@
+import { env, requireEnv } from "@/lib/config/env";
+import type { AccountConfig, FootballEvent } from "@/lib/events/types";
+
+type GroqResponse = {
+  choices?: { message?: { content?: string } }[];
+};
+
+export async function generatePostContent(event: FootballEvent, account: AccountConfig): Promise<string> {
+  if (!env.GROQ_API_KEY) return fallbackContent(event, account);
+
+  const prompt = buildPrompt(event, account);
+  let content = postProcess(await callGroq(prompt), account.characterLimit);
+
+  if (isPoorQuality(content)) {
+    const retryPrompt = `${prompt}
+
+Rewrite once. Make it sound less robotic and less journalistic. Use a real fan voice, short punchy lines, and do not start with phrases like breaking news or according to reports.`;
+    content = postProcess(await callGroq(retryPrompt), account.characterLimit);
+  }
+
+  return isPoorQuality(content) ? fallbackContent(event, account) : content;
+}
+
+async function callGroq(prompt: string) {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${requireEnv("GROQ_API_KEY")}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: env.GROQ_MODEL ?? "llama-3.1-70b-versatile",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You create short social posts for football fan accounts. No markdown, no invented facts, no journalism voice."
+        },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.85,
+      max_tokens: 180
+    })
+  });
+
+  if (!response.ok) throw new Error(`Groq failed: ${response.status} ${await response.text()}`);
+  const payload = (await response.json()) as GroqResponse;
+  return payload.choices?.[0]?.message?.content?.trim() ?? "";
+}
+
+function fallbackContent(event: FootballEvent, account: AccountConfig) {
+  return trimToLimit(`${event.title}. Big one for ${account.name} fans, emotions are properly up right now.`, account.characterLimit);
+}
+
+function buildPrompt(event: FootballEvent, account: AccountConfig) {
+  const template = account.promptTemplate ?? accountSpecificFallbackPrompt(account);
+  return template
+    .replaceAll("{accountName}", account.name)
+    .replaceAll("{style}", account.style)
+    .replaceAll("{characterLimit}", String(account.characterLimit))
+    .replaceAll("{title}", event.title)
+    .replaceAll("{description}", event.description ?? "No extra context")
+    .replaceAll("{category}", event.category)
+    .replaceAll("{source}", event.source)
+    .replaceAll("{publishedAt}", event.publishedAt)
+    .replaceAll("{keywords}", account.keywords.join(", "));
+}
+
+function accountSpecificFallbackPrompt(account: AccountConfig) {
+  return `You are posting for {accountName} as a ${account.style}. React like a real football fan, not a reporter. Event data controls the substance: {title}. Context: {description}. Category: {category}. Keep it under {characterLimit} characters before hashtags.`;
+}
+
+function postProcess(content: string, limit: number) {
+  const cleaned = content
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/^["']|["']$/g, "")
+    .replace(/\b(breaking news|according to reports|in a recent development|it has been reported|as per sources)\b[:\s-]*/gi, "")
+    .replace(/\b(this article|the report|journalist)\b/gi, "")
+    .replace(/\s+#\w+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return trimToLimit(cleaned, limit);
+}
+
+function isPoorQuality(content: string) {
+  const lower = content.toLowerCase();
+  if (content.length < 25) return true;
+  if (/(breaking news|according to reports|in a recent development|as per sources)/i.test(content)) return true;
+  if (lower.includes("as an ai") || lower.includes("i cannot")) return true;
+  if (content.split(/\s+/).length > 80) return true;
+  return false;
+}
+
+function trimToLimit(content: string, limit: number) {
+  if (content.length <= limit) return content;
+  return `${content.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
+}
