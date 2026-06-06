@@ -1,5 +1,5 @@
 import { getServiceSupabase } from "@/lib/db/supabase";
-import type { AccountConfig } from "@/lib/events/types";
+import type { AccountConfig, RelevanceRules } from "@/lib/events/types";
 
 type AccountRow = {
   id: string;
@@ -10,6 +10,7 @@ type AccountRow = {
   style: string;
   character_limit: number;
   relevance_threshold: number;
+  relevance_rules: RelevanceRules | null;
   max_posts_per_run: number | null;
   enabled: boolean;
   groq_api_key: string | null;
@@ -64,6 +65,7 @@ function mapAccount(row: AccountRow): AccountConfig {
     style: row.style,
     characterLimit: row.character_limit,
     relevanceThreshold: row.relevance_threshold,
+    relevanceRules: row.relevance_rules ?? {},
     maxPostsPerRun: row.max_posts_per_run ?? 3,
     enabled: row.enabled,
     groqApiKey: row.groq_api_key,

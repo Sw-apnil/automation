@@ -18,6 +18,7 @@ export async function updateAccountSettingsAction(formData: FormData) {
     hashtags: listValue(formData, "hashtags"),
     character_limit: numberValue(formData, "characterLimit"),
     relevance_threshold: numberValue(formData, "relevanceThreshold"),
+    relevance_rules: jsonObjectValue(formData, "relevanceRules"),
     max_posts_per_run: numberValue(formData, "maxPostsPerRun"),
     enabled: formData.get("enabled") === "on",
     groq_api_key: secretValue(formData, "groqApiKey", "clearGroqApiKey"),
@@ -70,6 +71,7 @@ export async function createAccountAction(formData: FormData) {
       hashtags: listValue(formData, "hashtags"),
       character_limit: numberValue(formData, "characterLimit") ?? 260,
       relevance_threshold: numberValue(formData, "relevanceThreshold") ?? 7,
+      relevance_rules: jsonObjectValue(formData, "relevanceRules") ?? {},
       max_posts_per_run: numberValue(formData, "maxPostsPerRun") ?? 3,
       enabled: formData.get("enabled") === "on",
       groq_api_key: requiredTextValue(formData, "groqApiKey"),
@@ -133,6 +135,21 @@ function listValue(formData: FormData, key: string) {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function jsonObjectValue(formData: FormData, key: string) {
+  const raw = String(formData.get(key) ?? "").trim();
+  if (!raw) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`${key} must be valid JSON.`);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${key} must be a JSON object.`);
+  }
+  return parsed as Record<string, unknown>;
 }
 
 function secretValue(formData: FormData, key: string, clearKey: string) {

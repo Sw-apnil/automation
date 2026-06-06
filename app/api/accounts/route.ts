@@ -7,6 +7,17 @@ export async function GET() {
   return NextResponse.json(await getAccountRows());
 }
 
+const relevanceRulesSchema = z
+  .object({
+    categoryWeights: z.record(z.string(), z.number()).optional(),
+    keywordBoost: z.number().optional(),
+    keywordBoosts: z.record(z.string(), z.number()).optional(),
+    terms: z.array(z.object({ term: z.string().min(1), score: z.number().min(0).max(10) })).optional(),
+    phraseBoosts: z.array(z.object({ phrase: z.string().min(1), boost: z.number() })).optional()
+  })
+  .strict()
+  .default({});
+
 const accountSchema = z.object({
   name: z.string().min(2),
   slug: z.string().min(2).regex(/^[a-z0-9-]+$/),
@@ -15,6 +26,7 @@ const accountSchema = z.object({
   style: z.string().default("football fan"),
   characterLimit: z.number().int().min(80).max(2000).default(260),
   relevanceThreshold: z.number().int().min(0).max(10).default(7),
+  relevanceRules: relevanceRulesSchema,
   maxPostsPerRun: z.number().int().min(1).max(10).default(3),
   enabled: z.boolean().default(true),
   groqApiKey: z.string().min(1),
@@ -35,7 +47,10 @@ const accountSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const input = accountSchema.parse(await request.json());
+  const parsed = accountSchema.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+
+  const input = parsed.data;
   const supabase = getServiceSupabase();
   const { data, error } = await supabase
     .from("accounts")
@@ -47,6 +62,7 @@ export async function POST(request: Request) {
       style: input.style,
       character_limit: input.characterLimit,
       relevance_threshold: input.relevanceThreshold,
+      relevance_rules: input.relevanceRules,
       max_posts_per_run: input.maxPostsPerRun,
       enabled: input.enabled,
       groq_api_key: input.groqApiKey,

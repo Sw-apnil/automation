@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getServiceSupabase } from "@/lib/db/supabase";
 
+const relevanceRulesSchema = z
+  .object({
+    categoryWeights: z.record(z.string(), z.number()).optional(),
+    keywordBoost: z.number().optional(),
+    keywordBoosts: z.record(z.string(), z.number()).optional(),
+    terms: z.array(z.object({ term: z.string().min(1), score: z.number().min(0).max(10) })).optional(),
+    phraseBoosts: z.array(z.object({ phrase: z.string().min(1), boost: z.number() })).optional()
+  })
+  .strict();
+
 const updateAccountSchema = z.object({
   name: z.string().min(2).optional(),
   slug: z.string().min(2).regex(/^[a-z0-9-]+$/).optional(),
@@ -10,6 +20,7 @@ const updateAccountSchema = z.object({
   style: z.string().optional(),
   characterLimit: z.number().int().min(80).max(2000).optional(),
   relevanceThreshold: z.number().int().min(0).max(10).optional(),
+  relevanceRules: relevanceRulesSchema.optional(),
   maxPostsPerRun: z.number().int().min(1).max(10).optional(),
   enabled: z.boolean().optional(),
   groqApiKey: z.string().min(1).nullable().optional(),
@@ -36,7 +47,10 @@ type RouteContext = {
 
 export async function PATCH(request: Request, context: RouteContext) {
   const { id } = await context.params;
-  const input = updateAccountSchema.parse(await request.json());
+  const parsed = updateAccountSchema.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+
+  const input = parsed.data;
   const supabase = getServiceSupabase();
 
   const accountPatch = toAccountPatch(input);
@@ -75,6 +89,7 @@ function toAccountPatch(input: z.infer<typeof updateAccountSchema>) {
     ...(input.style !== undefined ? { style: input.style } : {}),
     ...(input.characterLimit !== undefined ? { character_limit: input.characterLimit } : {}),
     ...(input.relevanceThreshold !== undefined ? { relevance_threshold: input.relevanceThreshold } : {}),
+    ...(input.relevanceRules !== undefined ? { relevance_rules: input.relevanceRules } : {}),
     ...(input.maxPostsPerRun !== undefined ? { max_posts_per_run: input.maxPostsPerRun } : {}),
     ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
     ...(input.groqApiKey !== undefined ? { groq_api_key: input.groqApiKey } : {}),

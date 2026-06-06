@@ -16,7 +16,7 @@ export default async function AccountsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Accounts</CardTitle>
-          <CardDescription>Database-driven configuration. Add rows in Supabase to onboard new football accounts.</CardDescription>
+          <CardDescription>Database-driven configuration. Create and tune football accounts from this dashboard.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -88,6 +88,13 @@ export default async function AccountsPage() {
             </div>
             <TextArea label="Keywords" name="keywords" required placeholder="Real Madrid, Mbappe, Bellingham" />
             <TextArea label="Hashtags" name="hashtags" required placeholder="#HalaMadrid, #RealMadrid" />
+            <TextArea
+              label="Relevance rules JSON"
+              name="relevanceRules"
+              required
+              defaultValue={defaultRelevanceRulesJson}
+              className="min-h-56 font-mono"
+            />
             <TextArea label="Buffer channel IDs" name="bufferChannelIds" required placeholder="channel-id-1, channel-id-2" />
             <TextArea label="Schedule time slots" name="scheduleTimeSlots" placeholder="09:00, 13:30, 21:00. Leave blank to use interval only." />
             <TextArea label="Prompt template" name="promptTemplate" required placeholder="You are an excited fan..." />
@@ -136,6 +143,12 @@ export default async function AccountsPage() {
 
                 <TextArea label="Keywords" name="keywords" defaultValue={(account.keywords ?? []).join(", ")} />
                 <TextArea label="Hashtags" name="hashtags" defaultValue={(account.hashtags ?? []).join(", ")} />
+                <TextArea
+                  label="Relevance rules JSON"
+                  name="relevanceRules"
+                  defaultValue={formatJson(account.relevance_rules)}
+                  className="min-h-56 font-mono"
+                />
                 <TextArea label="Buffer channel IDs" name="bufferChannelIds" defaultValue={(account.buffer_channel_ids?.length ? account.buffer_channel_ids : account.buffer_profiles ?? []).join(", ")} />
                 <TextArea label="Schedule time slots" name="scheduleTimeSlots" defaultValue={(account.schedule_time_slots ?? []).join(", ")} placeholder="Leave blank to use interval only." />
                 <TextArea label="New prompt template" name="promptTemplate" placeholder="Leave blank to keep current active prompt." />
@@ -179,11 +192,14 @@ function Field(props: React.InputHTMLAttributes<HTMLInputElement> & { label: str
 }
 
 function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; name: string }) {
-  const { label, ...textareaProps } = props;
+  const { label, className, ...textareaProps } = props;
   return (
     <label className="space-y-1 text-sm">
       <span className="font-medium">{label}</span>
-      <textarea className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" {...textareaProps} />
+      <textarea
+        className={`min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring ${className ?? ""}`}
+        {...textareaProps}
+      />
     </label>
   );
 }
@@ -208,4 +224,27 @@ function SecretField({ label, name, configured, clearName }: { label: string; na
       ) : null}
     </div>
   );
+}
+
+const defaultRelevanceRulesJson = formatJson({
+  categoryWeights: {
+    transfer: 10,
+    result: 10,
+    fixture: 8,
+    standing: 7,
+    injury: 8,
+    squad: 7,
+    team_news: 6,
+    quote: 7,
+    academy: 3,
+    other: 4
+  },
+  keywordBoost: 1,
+  keywordBoosts: {},
+  terms: [{ term: "world cup", score: 10 }],
+  phraseBoosts: [{ phrase: "official", boost: 1 }]
+});
+
+function formatJson(value: unknown) {
+  return JSON.stringify(value && typeof value === "object" ? value : {}, null, 2);
 }

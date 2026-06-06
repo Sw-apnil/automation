@@ -23,6 +23,14 @@ export type FootballEvent = {
   metadata?: Record<string, unknown>;
 };
 
+export type RelevanceRules = {
+  categoryWeights?: Partial<Record<EventCategory, number>>;
+  keywordBoost?: number;
+  keywordBoosts?: Record<string, number>;
+  terms?: Array<{ term: string; score: number }>;
+  phraseBoosts?: Array<{ phrase: string; boost: number }>;
+};
+
 export type AccountConfig = {
   id: string;
   name: string;
@@ -32,6 +40,7 @@ export type AccountConfig = {
   style: string;
   characterLimit: number;
   relevanceThreshold: number;
+  relevanceRules: RelevanceRules;
   maxPostsPerRun: number;
   enabled: boolean;
   groqApiKey?: string | null;

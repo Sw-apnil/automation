@@ -9,7 +9,7 @@ Production-oriented Next.js 15 app for collecting football events, scoring relev
 - Groq chat completions
 - API-Football and NewsAPI source adapters
 - Buffer publishing through connected Buffer channels
-- GitHub Actions 15-minute scheduler
+- GitHub Actions 5-minute scheduler
 - Docker support
 
 ## Setup
@@ -48,11 +48,11 @@ npm run dev
 
 Open `http://localhost:3000/dashboard`.
 
-## 15-Minute Flow
+## 5-Minute Wakeup Flow
 
 `GET /api/cron/every-15-min` runs:
 
-GitHub Actions calls the deployed cron endpoint every 15 minutes. The app then fetches News/API-Football events -> normalizes events -> scores relevance -> skips low-score events before AI -> dedupes by event ID, headline hash, similar headline, and article URL -> selects best candidates by relevance, recency, keyword strength, image availability, similarity, and category importance -> generates Groq fan post -> cleans/retries weak output -> rotates hashtags -> selects image -> queues -> publishes due Buffer posts -> records posts and audit logs.
+GitHub Actions calls the deployed cron endpoint every 5 minutes. The app then fetches News/API-Football events -> normalizes events -> scores relevance -> skips low-score events before AI -> dedupes by event ID, headline hash, similar headline, and article URL -> selects best candidates by relevance, recency, keyword strength, image availability, similarity, and category importance -> generates Groq fan post -> cleans/retries weak output -> rotates hashtags -> selects image -> queues -> publishes due Buffer posts -> records posts and audit logs.
 
 If `CRON_SECRET` is set, call the cron endpoint with:
 
@@ -70,6 +70,7 @@ Accounts live in the `accounts` table. Add a new account by inserting a row with
 - `style`
 - `character_limit`
 - `relevance_threshold`
+- `relevance_rules`
 - `max_posts_per_run`
 - `buffer_channel_ids`
 - `schedule_interval_minutes`
@@ -80,6 +81,52 @@ Accounts live in the `accounts` table. Add a new account by inserting a row with
 - optional `team_id`, `league_id`, `logo_url`
 
 Prompts live in `account_prompts`, so each account has its own personality without code changes. The account prompt controls voice and style; event fields such as `{title}`, `{description}`, `{category}`, and `{publishedAt}` control the substance.
+
+### Relevance Rules
+
+Each account controls scoring with `accounts.relevance_rules`. The JSON must be an object. Missing individual values use defaults, but player names, competitions, special terms, and phrase boosts should be configured per account instead of hardcoded in the app.
+
+Example:
+
+```json
+{
+  "categoryWeights": {
+    "transfer": 10,
+    "result": 10,
+    "fixture": 8,
+    "standing": 7,
+    "injury": 8,
+    "squad": 7,
+    "team_news": 6,
+    "quote": 7,
+    "academy": 3,
+    "other": 4
+  },
+  "keywordBoost": 1,
+  "keywordBoosts": {
+    "FIFA World Cup": 3,
+    "World Cup 2026": 3,
+    "qualifiers": 2
+  },
+  "terms": [
+    { "term": "world cup", "score": 10 },
+    { "term": "qualifier", "score": 9 }
+  ],
+  "phraseBoosts": [
+    { "phrase": "official", "boost": 1 },
+    { "phrase": "confirmed", "boost": 1 }
+  ]
+}
+```
+
+How scoring works:
+
+- Starts from `categoryWeights[event.category]`.
+- Adds `keywordBoost` for each matching account keyword.
+- Uses `keywordBoosts` when a specific keyword needs a custom boost.
+- Raises the score to a minimum value from matching `terms`.
+- Adds every matching `phraseBoosts` value.
+- Clamps the final score between `0` and `10`, then compares it with `relevance_threshold`.
 
 Account API:
 
@@ -97,9 +144,10 @@ Frontend account setup:
 1. Open `/dashboard/accounts`.
 2. Use `Create Account`.
 3. Fill account identity, keywords, hashtags, style, prompt, Groq key/model, NewsAPI key, API-Football key, Buffer token, and Buffer channel IDs.
-4. Set `Run every minutes`, for example `15`, `30`, or `60`.
-5. Optionally set exact `Schedule time slots` as comma-separated `HH:MM` values, for example `09:00, 13:30, 21:00`.
-6. Save. GitHub Actions wakes the app every 15 minutes; the app checks these account-level schedule settings and only runs accounts that are due.
+4. Edit `Relevance rules JSON` to decide which categories, keywords, terms, and phrases matter for that account.
+5. Set `Run every minutes`, for example `15`, `30`, or `60`.
+6. Optionally set exact `Schedule time slots` as comma-separated `HH:MM` values, for example `09:00, 13:30, 21:00`.
+7. Save. GitHub Actions wakes the app every 5 minutes; the app checks these account-level schedule settings and only runs accounts that are due.
 
 ## Image Priority
 
@@ -143,7 +191,7 @@ docker run --env-file .env.local -p 3000:3000 football-social-automation
 4. In GitHub repository settings, add Actions secrets:
    - `APP_URL`: your deployed Vercel URL, for example `https://your-app.vercel.app`
    - `CRON_SECRET`: the same value used in Vercel env vars
-5. GitHub Actions workflow `.github/workflows/every-15-min.yml` calls `/api/cron/every-15-min` every 15 minutes.
+5. GitHub Actions workflow `.github/workflows/every-15-min.yml` calls `/api/cron/every-15-min` every 5 minutes.
 
 Vercel Cron is intentionally not used because the free tier may restrict high-frequency schedules.
 
