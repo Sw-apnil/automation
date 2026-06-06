@@ -18,7 +18,9 @@ export async function updateAccountSettingsAction(formData: FormData) {
     hashtags: listValue(formData, "hashtags"),
     character_limit: numberValue(formData, "characterLimit"),
     relevance_threshold: numberValue(formData, "relevanceThreshold"),
+    relevance_rules: jsonValue(formData, "relevanceRules"),
     max_posts_per_run: numberValue(formData, "maxPostsPerRun"),
+    duplicate_retention_days: numberValue(formData, "duplicateRetentionDays"),
     enabled: formData.get("enabled") === "on",
     groq_api_key: secretValue(formData, "groqApiKey", "clearGroqApiKey"),
     groq_model: nullableTextValue(formData, "groqModel"),
@@ -70,7 +72,9 @@ export async function createAccountAction(formData: FormData) {
       hashtags: listValue(formData, "hashtags"),
       character_limit: numberValue(formData, "characterLimit") ?? 260,
       relevance_threshold: numberValue(formData, "relevanceThreshold") ?? 7,
+      relevance_rules: jsonValue(formData, "relevanceRules") ?? defaultRelevanceRules(),
       max_posts_per_run: numberValue(formData, "maxPostsPerRun") ?? 3,
+      duplicate_retention_days: numberValue(formData, "duplicateRetentionDays") ?? 90,
       enabled: formData.get("enabled") === "on",
       groq_api_key: requiredTextValue(formData, "groqApiKey"),
       groq_model: requiredTextValue(formData, "groqModel"),
@@ -139,4 +143,38 @@ function secretValue(formData: FormData, key: string, clearKey: string) {
   if (formData.get(clearKey) === "on") return null;
   const value = String(formData.get(key) ?? "").trim();
   return value || undefined;
+}
+
+function jsonValue(formData: FormData, key: string) {
+  const value = String(formData.get(key) ?? "").trim();
+  if (!value) return undefined;
+  try {
+    return JSON.parse(value) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
+
+function defaultRelevanceRules() {
+  return {
+    categoryWeights: {
+      transfer: 10,
+      result: 10,
+      fixture: 8,
+      injury: 8,
+      standing: 7,
+      squad: 7,
+      quote: 7,
+      team_news: 6,
+      other: 4,
+      academy: 3
+    },
+    keywordBoost: 1,
+    keywordBoosts: {},
+    terms: [],
+    phraseBoosts: [
+      { phrase: "confirmed", boost: 1 },
+      { phrase: "official", boost: 1 }
+    ]
+  };
 }

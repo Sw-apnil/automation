@@ -32,7 +32,9 @@ export type AccountConfig = {
   style: string;
   characterLimit: number;
   relevanceThreshold: number;
+  relevanceRules: RelevanceRules;
   maxPostsPerRun: number;
+  duplicateRetentionDays: number;
   enabled: boolean;
   groqApiKey?: string | null;
   groqModel?: string | null;
@@ -50,6 +52,14 @@ export type AccountConfig = {
   leagueId?: number | null;
   logoUrl?: string | null;
   promptTemplate?: string | null;
+};
+
+export type RelevanceRules = {
+  categoryWeights: Partial<Record<EventCategory, number>>;
+  keywordBoost: number;
+  keywordBoosts: Record<string, number>;
+  terms: { term: string; score: number }[];
+  phraseBoosts: { phrase: string; boost: number }[];
 };
 
 export type QueuedPost = {

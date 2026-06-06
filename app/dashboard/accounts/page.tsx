@@ -25,7 +25,8 @@ export default async function AccountsPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Style</TableHead>
                 <TableHead>Threshold</TableHead>
-                <TableHead>Run cap</TableHead>
+              <TableHead>Run cap</TableHead>
+              <TableHead>Retention</TableHead>
                 <TableHead>Limit</TableHead>
                 <TableHead>Groq</TableHead>
                 <TableHead>Buffer</TableHead>
@@ -41,6 +42,7 @@ export default async function AccountsPage() {
                   <TableCell>{account.style}</TableCell>
                   <TableCell>{account.relevance_threshold}</TableCell>
                   <TableCell>{account.max_posts_per_run}</TableCell>
+                  <TableCell>{account.duplicate_retention_days ?? 90}d</TableCell>
                   <TableCell>{account.character_limit}</TableCell>
                   <TableCell>
                     <div className="space-y-1">
@@ -79,6 +81,7 @@ export default async function AccountsPage() {
               <Field label="Character limit" name="characterLimit" type="number" defaultValue={260} />
               <Field label="Relevance threshold" name="relevanceThreshold" type="number" min={0} max={10} defaultValue={7} />
               <Field label="Max posts per run" name="maxPostsPerRun" type="number" min={1} max={10} defaultValue={3} />
+              <Field label="Duplicate retention days" name="duplicateRetentionDays" type="number" min={7} max={3650} defaultValue={90} />
               <Field label="Groq temperature" name="groqTemperature" type="number" step="0.05" min={0} max={2} defaultValue={0.85} />
               <Field label="Groq max tokens" name="groqMaxTokens" type="number" min={32} max={1000} defaultValue={180} />
               <Field label="Run every minutes" name="scheduleIntervalMinutes" type="number" min={5} max={1440} defaultValue={15} />
@@ -90,6 +93,7 @@ export default async function AccountsPage() {
             <TextArea label="Hashtags" name="hashtags" required placeholder="#HalaMadrid, #RealMadrid" />
             <TextArea label="Buffer channel IDs" name="bufferChannelIds" required placeholder="channel-id-1, channel-id-2" />
             <TextArea label="Schedule time slots" name="scheduleTimeSlots" placeholder="09:00, 13:30, 21:00. Leave blank to use interval only." />
+            <TextArea label="Relevance rules JSON" name="relevanceRules" defaultValue={JSON.stringify(defaultRelevanceRules(), null, 2)} />
             <TextArea label="Prompt template" name="promptTemplate" required placeholder="You are an excited fan..." />
             <div className="grid gap-3 sm:grid-cols-2">
               <SecretField label="Groq API key" name="groqApiKey" configured={false} />
@@ -127,6 +131,7 @@ export default async function AccountsPage() {
                   <Field label="Character limit" name="characterLimit" type="number" defaultValue={account.character_limit} />
                   <Field label="Relevance threshold" name="relevanceThreshold" type="number" min={0} max={10} defaultValue={account.relevance_threshold} />
                   <Field label="Max posts per run" name="maxPostsPerRun" type="number" min={1} max={10} defaultValue={account.max_posts_per_run} />
+                  <Field label="Duplicate retention days" name="duplicateRetentionDays" type="number" min={7} max={3650} defaultValue={account.duplicate_retention_days ?? 90} />
                   <Field label="Groq temperature" name="groqTemperature" type="number" step="0.05" min={0} max={2} defaultValue={account.groq_temperature ?? 0.85} />
                   <Field label="Groq max tokens" name="groqMaxTokens" type="number" min={32} max={1000} defaultValue={account.groq_max_tokens ?? 180} />
                   <Field label="Team ID" name="teamId" type="number" defaultValue={account.team_id ?? ""} />
@@ -138,6 +143,7 @@ export default async function AccountsPage() {
                 <TextArea label="Hashtags" name="hashtags" defaultValue={(account.hashtags ?? []).join(", ")} />
                 <TextArea label="Buffer channel IDs" name="bufferChannelIds" defaultValue={(account.buffer_channel_ids?.length ? account.buffer_channel_ids : account.buffer_profiles ?? []).join(", ")} />
                 <TextArea label="Schedule time slots" name="scheduleTimeSlots" defaultValue={(account.schedule_time_slots ?? []).join(", ")} placeholder="Leave blank to use interval only." />
+                <TextArea label="Relevance rules JSON" name="relevanceRules" defaultValue={JSON.stringify(account.relevance_rules ?? defaultRelevanceRules(), null, 2)} />
                 <TextArea label="New prompt template" name="promptTemplate" placeholder="Leave blank to keep current active prompt." />
 
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -208,4 +214,28 @@ function SecretField({ label, name, configured, clearName }: { label: string; na
       ) : null}
     </div>
   );
+}
+
+function defaultRelevanceRules() {
+  return {
+    categoryWeights: {
+      transfer: 10,
+      result: 10,
+      fixture: 8,
+      injury: 8,
+      standing: 7,
+      squad: 7,
+      quote: 7,
+      team_news: 6,
+      other: 4,
+      academy: 3
+    },
+    keywordBoost: 1,
+    keywordBoosts: {},
+    terms: [],
+    phraseBoosts: [
+      { phrase: "confirmed", boost: 1 },
+      { phrase: "official", boost: 1 }
+    ]
+  };
 }

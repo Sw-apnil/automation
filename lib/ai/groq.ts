@@ -74,7 +74,6 @@ function postProcess(content: string, limit: number) {
     .replace(/^["']|["']$/g, "")
     .replace(/\b(breaking news|according to reports|in a recent development|it has been reported|as per sources)\b[:\s-]*/gi, "")
     .replace(/\b(this article|the report|journalist)\b/gi, "")
-    .replace(/\s+#\w+/g, "")
     .replace(/\s+/g, " ")
     .trim();
 
