@@ -1,6 +1,5 @@
 import { Activity, CopyX, Newspaper, Send, TriangleAlert } from "lucide-react";
-import { runPipelineAction } from "@/app/actions/pipeline";
-import { Button } from "@/components/ui/button";
+import { PipelineRunForm } from "@/components/pipeline-run-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDashboardSummary, getQueue, getRecentEvents } from "@/lib/dashboard/data";
 
@@ -16,12 +15,7 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-semibold">Automation Dashboard</h1>
           <p className="text-sm text-muted-foreground">15-minute football content pipeline for configured fan accounts.</p>
         </div>
-        <form action={runPipelineAction}>
-          <Button type="submit">
-            <Activity className="h-4 w-4" />
-            Run pipeline
-          </Button>
-        </form>
+        <PipelineRunForm />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -36,7 +30,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Recent Events</CardTitle>
-            <CardDescription>Latest normalized items from NewsAPI and API-Football.</CardDescription>
+            <CardDescription>Latest normalized items from API-Football, GNews, and Guardian.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {events.map((event) => (

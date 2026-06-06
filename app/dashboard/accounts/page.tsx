@@ -51,7 +51,8 @@ export default async function AccountsPage() {
                   <TableCell><Badge variant={account.buffer_access_token ? "secondary" : "destructive"}>{account.buffer_access_token ? "Configured" : "Missing"}</Badge></TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                    <Badge variant={account.news_api_key ? "secondary" : "destructive"}>News</Badge>
+                    <Badge variant={account.gnews_api_key ? "secondary" : "destructive"}>GNews</Badge>
+                    <Badge variant={account.guardian_api_key ? "secondary" : "destructive"}>Guardian</Badge>
                     <Badge variant={account.api_football_key ? "secondary" : "destructive"}>Football</Badge>
                     </div>
                   </TableCell>
@@ -101,8 +102,19 @@ export default async function AccountsPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <SecretField label="Groq API key" name="groqApiKey" configured={false} />
               <SecretField label="Buffer access token" name="bufferAccessToken" configured={false} />
-              <SecretField label="NewsAPI key" name="newsApiKey" configured={false} />
+              <SecretField label="GNews API key" name="gnewsApiKey" configured={false} />
+              <SecretField label="Guardian API key" name="guardianApiKey" configured={false} />
               <SecretField label="API-Football key" name="apiFootballKey" configured={false} />
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="gnewsEnabled" defaultChecked className="h-4 w-4" />
+                GNews enabled
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="guardianEnabled" defaultChecked className="h-4 w-4" />
+                Guardian fallback enabled
+              </label>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="enabled" defaultChecked className="h-4 w-4" />
@@ -156,7 +168,8 @@ export default async function AccountsPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SecretField label="Groq API key" name="groqApiKey" configured={Boolean(account.groq_api_key)} clearName="clearGroqApiKey" />
                   <SecretField label="Buffer access token" name="bufferAccessToken" configured={Boolean(account.buffer_access_token)} clearName="clearBufferAccessToken" />
-                  <SecretField label="NewsAPI key" name="newsApiKey" configured={Boolean(account.news_api_key)} clearName="clearNewsApiKey" />
+                  <SecretField label="GNews API key" name="gnewsApiKey" configured={Boolean(account.gnews_api_key)} clearName="clearGnewsApiKey" />
+                  <SecretField label="Guardian API key" name="guardianApiKey" configured={Boolean(account.guardian_api_key)} clearName="clearGuardianApiKey" />
                   <SecretField label="API-Football key" name="apiFootballKey" configured={Boolean(account.api_football_key)} clearName="clearApiFootballKey" />
                 </div>
                 <Field label="Run every minutes" name="scheduleIntervalMinutes" type="number" min={5} max={1440} defaultValue={account.schedule_interval_minutes ?? 15} />
@@ -165,6 +178,14 @@ export default async function AccountsPage() {
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" name="enabled" defaultChecked={account.enabled} className="h-4 w-4" />
                     Enabled
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="gnewsEnabled" defaultChecked={account.gnews_enabled ?? true} className="h-4 w-4" />
+                    GNews enabled
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="guardianEnabled" defaultChecked={account.guardian_enabled ?? true} className="h-4 w-4" />
+                    Guardian fallback enabled
                   </label>
                 </div>
 

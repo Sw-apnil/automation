@@ -1,6 +1,8 @@
 import { ApiFootballAdapter } from "@/lib/sources/api-football";
-import { NewsApiAdapter } from "@/lib/sources/newsapi";
+import { GNewsAdapter } from "@/lib/sources/gnews";
+import { GuardianAdapter } from "@/lib/sources/guardian";
 import type { AccountConfig, FootballEvent } from "@/lib/events/types";
+import type { SourceAdapter } from "@/lib/sources/source";
 import { scoreEvent } from "@/lib/events/relevance";
 import { isDuplicate, markPublishedEvent } from "@/lib/events/dedupe";
 import { selectBestCandidates } from "@/lib/events/candidates";
@@ -12,7 +14,10 @@ import { getEnabledAccounts } from "@/lib/config/accounts";
 import { getServiceSupabase } from "@/lib/db/supabase";
 import { auditLog } from "@/lib/logging/audit";
 
-const adapters = [new ApiFootballAdapter(), new NewsApiAdapter()];
+const apiFootballAdapter = new ApiFootballAdapter();
+const gnewsAdapter = new GNewsAdapter();
+const guardianAdapter = new GuardianAdapter();
+const minimumGNewsEvents = 5;
 
 export type PipelineResult = {
   accounts: number;
@@ -24,7 +29,7 @@ export type PipelineResult = {
   errors: number;
 };
 
-export async function runEvery15MinPipeline(): Promise<PipelineResult> {
+export async function runEvery15MinPipeline(options: { force?: boolean } = {}): Promise<PipelineResult> {
   const result: PipelineResult = {
     accounts: 0,
     eventsCollected: 0,
@@ -36,7 +41,7 @@ export async function runEvery15MinPipeline(): Promise<PipelineResult> {
   };
 
   const enabledAccounts = await getEnabledAccounts();
-  const accounts = enabledAccounts.filter(isAccountDue);
+  const accounts = options.force ? enabledAccounts : enabledAccounts.filter(isAccountDue);
   result.accounts = accounts.length;
 
   for (const account of accounts) {
@@ -73,8 +78,9 @@ async function validateAccountConfig(account: AccountConfig) {
     !account.groqModel ? "groq_model" : null,
     !account.bufferAccessToken ? "buffer_access_token" : null,
     account.bufferChannelIds.length === 0 ? "buffer_channel_ids" : null,
-    !account.newsApiKey ? "news_api_key" : null,
     !account.apiFootballKey ? "api_football_key" : null,
+    account.gnewsEnabled && !account.gnewsApiKey ? "gnews_api_key" : null,
+    account.guardianEnabled && !account.guardianApiKey ? "guardian_api_key" : null,
     !account.promptTemplate ? "active account prompt" : null
   ].filter(Boolean);
 
@@ -115,44 +121,32 @@ async function markAccountRun(accountId: string) {
 async function processAccount(account: AccountConfig) {
   const result = { eventsCollected: 0, postsGenerated: 0, duplicatesRemoved: 0, skippedLowScore: 0 };
   const eligibleEvents: Array<FootballEvent & { score: number }> = [];
+  const eventsBySource = await fetchAccountEvents(account);
 
-  for (const adapter of adapters) {
-    try {
-      const events = await adapter.fetch(account);
-      result.eventsCollected += events.length;
+  for (const event of dedupeFetchedEvents(eventsBySource.flatMap((source) => source.events))) {
+    const score = scoreEvent(event, account);
+    await saveSourceEvent(account, event, score);
 
-      for (const event of events) {
-        const score = scoreEvent(event, account);
-        await saveSourceEvent(account, event, score);
+    result.eventsCollected += 1;
 
-        if (score < account.relevanceThreshold) {
-          result.skippedLowScore += 1;
-          continue;
-        }
+    if (score < account.relevanceThreshold) {
+      result.skippedLowScore += 1;
+      continue;
+    }
 
-        if (await isDuplicate(account.id, event)) {
-          result.duplicatesRemoved += 1;
-          await auditLog({
-            accountId: account.id,
-            level: "info",
-            eventType: "duplicate.skipped",
-            message: event.title,
-            metadata: { source: event.source, sourceEventId: event.id, sourceUrl: event.sourceUrl }
-          });
-          continue;
-        }
-
-        eligibleEvents.push({ ...event, score });
-      }
-    } catch (error) {
+    if (await isDuplicate(account.id, event)) {
+      result.duplicatesRemoved += 1;
       await auditLog({
         accountId: account.id,
-        level: "error",
-        eventType: "source.fetch_failed",
-        message: error instanceof Error ? error.message : `${adapter.name} fetch failed`,
-        metadata: { source: adapter.name }
+        level: "info",
+        eventType: "duplicate.skipped",
+        message: event.title,
+        metadata: { source: event.source, sourceEventId: event.id, sourceUrl: event.sourceUrl }
       });
+      continue;
     }
+
+    eligibleEvents.push({ ...event, score });
   }
 
   const candidates = selectBestCandidates(eligibleEvents, account);
@@ -186,6 +180,72 @@ async function processAccount(account: AccountConfig) {
   }
 
   return result;
+}
+
+async function fetchAccountEvents(account: AccountConfig) {
+  const [apiFootballEvents, gnewsEvents] = await Promise.all([fetchFromAdapter(apiFootballAdapter, account), fetchFromAdapter(gnewsAdapter, account)]);
+  const sources: { source: SourceAdapter["name"]; events: FootballEvent[] }[] = [
+    { source: apiFootballAdapter.name, events: apiFootballEvents },
+    { source: gnewsAdapter.name, events: gnewsEvents }
+  ];
+
+  if (account.guardianEnabled && gnewsEvents.length < minimumGNewsEvents) {
+    sources.push({ source: guardianAdapter.name, events: await fetchFromAdapter(guardianAdapter, account) });
+  }
+
+  return sources;
+}
+
+async function fetchFromAdapter(adapter: SourceAdapter, account: AccountConfig) {
+  try {
+    return await adapter.fetch(account);
+  } catch (error) {
+    await auditLog({
+      accountId: account.id,
+      level: "error",
+      eventType: "source.fetch_failed",
+      message: error instanceof Error ? error.message : `${adapter.name} fetch failed`,
+      metadata: { source: adapter.name }
+    });
+    return [];
+  }
+}
+
+function dedupeFetchedEvents(events: FootballEvent[]) {
+  const seenUrls = new Set<string>();
+  const seenHeadlines = new Set<string>();
+  const deduped: FootballEvent[] = [];
+
+  for (const event of events) {
+    const sourceUrl = event.sourceUrl?.trim().toLowerCase();
+    const headline = normalizeInlineHeadline(event.title);
+    if (sourceUrl && seenUrls.has(sourceUrl)) continue;
+    if (headline && seenHeadlines.has(headline)) continue;
+    if (headline && deduped.some((existing) => headlineSimilarity(normalizeInlineHeadline(existing.title), headline) >= 0.86)) continue;
+
+    if (sourceUrl) seenUrls.add(sourceUrl);
+    if (headline) seenHeadlines.add(headline);
+    deduped.push(event);
+  }
+
+  return deduped;
+}
+
+function normalizeInlineHeadline(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function headlineSimilarity(a: string, b: string) {
+  const aTokens = new Set(a.split(" ").filter(Boolean));
+  const bTokens = new Set(b.split(" ").filter(Boolean));
+  if (!aTokens.size || !bTokens.size) return 0;
+  const intersection = [...aTokens].filter((token) => bTokens.has(token)).length;
+  const union = new Set([...aTokens, ...bTokens]).size;
+  return intersection / union;
 }
 
 async function saveSourceEvent(account: AccountConfig, event: FootballEvent, score: number) {

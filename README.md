@@ -7,7 +7,7 @@ Production-oriented Next.js 15 app for collecting football events, scoring relev
 - Next.js 15, TypeScript, Tailwind CSS, shadcn-style UI primitives
 - Supabase PostgreSQL
 - Groq chat completions
-- API-Football and NewsAPI source adapters
+- API-Football, GNews, and Guardian source adapters
 - Buffer publishing through connected Buffer channels
 - GitHub Actions 5-minute scheduler
 - Docker support
@@ -36,7 +36,7 @@ cp .env.example .env.local
 
 Fill Supabase keys first. `SUPABASE_SERVICE_ROLE_KEY` is server-only and must never be exposed to client code.
 
-Groq, Buffer, NewsAPI, and API-Football values are required per account in the `accounts` table. They are not read from `.env.local`.
+Groq, Buffer, GNews, Guardian, and API-Football values are configured per account in the `accounts` table. They are not read from `.env.local`.
 
 Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in production to protect the dashboard and non-cron API routes with Basic Auth.
 
@@ -77,7 +77,9 @@ Accounts live in the `accounts` table. Add a new account by inserting a row with
 - optional `schedule_time_slots`
 - `groq_api_key`, `groq_model`, `groq_temperature`, `groq_max_tokens`
 - `buffer_access_token`
-- `news_api_key`, `api_football_key`
+- `api_football_key`
+- `gnews_api_key`, `gnews_enabled`
+- `guardian_api_key`, `guardian_enabled`
 - optional `team_id`, `league_id`, `logo_url`
 
 Prompts live in `account_prompts`, so each account has its own personality without code changes. The account prompt controls voice and style; event fields such as `{title}`, `{description}`, `{category}`, and `{publishedAt}` control the substance.
@@ -143,7 +145,7 @@ Frontend account setup:
 
 1. Open `/dashboard/accounts`.
 2. Use `Create Account`.
-3. Fill account identity, keywords, hashtags, style, prompt, Groq key/model, NewsAPI key, API-Football key, Buffer token, and Buffer channel IDs.
+3. Fill account identity, keywords, hashtags, style, prompt, Groq key/model, API-Football key, GNews key, Guardian key, Buffer token, and Buffer channel IDs.
 4. Edit `Relevance rules JSON` to decide which categories, keywords, terms, and phrases matter for that account.
 5. Set `Run every minutes`, for example `15`, `30`, or `60`.
 6. Optionally set exact `Schedule time slots` as comma-separated `HH:MM` values, for example `09:00, 13:30, 21:00`.

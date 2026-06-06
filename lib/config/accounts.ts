@@ -24,7 +24,10 @@ type AccountRow = {
   schedule_interval_minutes: number | null;
   schedule_time_slots: string[] | null;
   last_run_at: string | null;
-  news_api_key: string | null;
+  gnews_api_key: string | null;
+  guardian_api_key: string | null;
+  gnews_enabled: boolean | null;
+  guardian_enabled: boolean | null;
   api_football_key: string | null;
   team_id: number | null;
   league_id: number | null;
@@ -78,7 +81,10 @@ function mapAccount(row: AccountRow): AccountConfig {
     scheduleIntervalMinutes: row.schedule_interval_minutes ?? 15,
     scheduleTimeSlots: row.schedule_time_slots ?? [],
     lastRunAt: row.last_run_at,
-    newsApiKey: row.news_api_key,
+    gnewsApiKey: row.gnews_api_key,
+    guardianApiKey: row.guardian_api_key,
+    gnewsEnabled: row.gnews_enabled ?? true,
+    guardianEnabled: row.guardian_enabled ?? true,
     apiFootballKey: row.api_football_key,
     teamId: row.team_id,
     leagueId: row.league_id,

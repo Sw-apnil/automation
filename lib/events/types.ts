@@ -15,7 +15,7 @@ export type FootballEvent = {
   title: string;
   description?: string | null;
   imageUrl?: string | null;
-  source: "api-football" | "newsapi";
+  source: "api-football" | "gnews" | "guardian";
   sourceUrl?: string | null;
   publishedAt: string;
   category: EventCategory;
@@ -53,7 +53,10 @@ export type AccountConfig = {
   scheduleIntervalMinutes: number;
   scheduleTimeSlots: string[];
   lastRunAt?: string | null;
-  newsApiKey?: string | null;
+  gnewsApiKey?: string | null;
+  guardianApiKey?: string | null;
+  gnewsEnabled: boolean;
+  guardianEnabled: boolean;
   apiFootballKey?: string | null;
   teamId?: number | null;
   leagueId?: number | null;

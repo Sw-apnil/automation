@@ -37,15 +37,30 @@ export class ApiFootballAdapter implements SourceAdapter {
   }
 
   private async fetchFixtures(account: AccountConfig): Promise<FootballEvent[]> {
-    if (!account.teamId) return [];
+    if (!account.teamId && !account.leagueId) return [];
     const season = new Date().getUTCFullYear();
-    const payload = await this.request<FixtureRow>(
-      account,
-      `fixtures?team=${account.teamId}&season=${season}&last=5&next=5`,
-      `api-football:fixtures:${account.slug}:${season}`,
-      900
-    );
-    return (payload.response ?? []).map((row) => {
+    const scope = account.teamId ? `team=${account.teamId}` : `league=${account.leagueId}`;
+    const [recent, upcoming] = await Promise.all([
+      this.request<FixtureRow>(
+        account,
+        `fixtures?${scope}&season=${season}&last=10`,
+        `api-football:fixtures:recent:${account.slug}:${season}`,
+        900
+      ),
+      this.request<FixtureRow>(
+        account,
+        `fixtures?${scope}&season=${season}&next=10`,
+        `api-football:fixtures:upcoming:${account.slug}:${season}`,
+        900
+      )
+    ]);
+
+    const fixtures = new Map<number, FixtureRow>();
+    for (const row of [...(recent.response ?? []), ...(upcoming.response ?? [])]) {
+      fixtures.set(row.fixture.id, row);
+    }
+
+    return [...fixtures.values()].map((row) => {
       const status = row.fixture.status.short;
       const isResult = ["FT", "AET", "PEN"].includes(status);
       const home = row.teams.home.name;
