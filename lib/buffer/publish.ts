@@ -43,7 +43,7 @@ export async function publishToBuffer(input: {
           text: input.text,
           channelId: input.channelId,
           schedulingType: "automatic",
-          mode: "addToQueue",
+          mode: "shareNow",
           assets
         }
       }

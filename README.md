@@ -174,7 +174,7 @@ The pipeline checks exact source IDs, headline hashes, same article URLs, and re
 
 Set each account's `buffer_access_token` and channel IDs in `accounts.buffer_channel_ids`. A Buffer channel is one connected destination inside Buffer, such as a specific X account, Threads account, Facebook page, etc. Buffer already knows the platform for each channel ID, so the app only needs the channel IDs to publish.
 
-Publishing uses Buffer's GraphQL `createPost` mutation with `channelId`, `schedulingType: automatic`, and `mode: addToQueue`.
+Publishing uses Buffer's GraphQL `createPost` mutation with `channelId`, `schedulingType: automatic`, and `mode: shareNow`, so new posts publish immediately instead of entering Buffer's posting queue.
 
 When a required Buffer token or channel ID is missing, the account is treated as misconfigured and the failure is written to `audit_logs`.
 
