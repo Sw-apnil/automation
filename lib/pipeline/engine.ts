@@ -36,7 +36,6 @@ export async function runEvery15MinPipeline(): Promise<PipelineResult> {
   };
 
   const enabledAccounts = await getEnabledAccounts();
-  await cleanupOldData(enabledAccounts);
   const accounts = enabledAccounts.filter(isAccountDue);
   result.accounts = accounts.length;
 
@@ -66,16 +65,6 @@ export async function runEvery15MinPipeline(): Promise<PipelineResult> {
 
   result.postsPublished = await publishDuePosts();
   return result;
-}
-
-async function cleanupOldData(accounts: AccountConfig[]) {
-  const supabase = getServiceSupabase();
-  await supabase.from("api_cache").delete().lt("expires_at", new Date().toISOString());
-
-  for (const account of accounts) {
-    const cutoff = new Date(Date.now() - account.duplicateRetentionDays * 24 * 60 * 60 * 1000).toISOString();
-    await supabase.from("published_events").delete().eq("account_id", account.id).lt("created_at", cutoff);
-  }
 }
 
 async function validateAccountConfig(account: AccountConfig) {

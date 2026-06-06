@@ -27,29 +27,7 @@ create table accounts (
   style text not null default 'football fan',
   character_limit integer not null default 260 check (character_limit between 80 and 2000),
   relevance_threshold integer not null default 7 check (relevance_threshold between 0 and 10),
-  relevance_rules jsonb not null default '{
-    "categoryWeights": {
-      "transfer": 10,
-      "result": 10,
-      "fixture": 8,
-      "injury": 8,
-      "standing": 7,
-      "squad": 7,
-      "quote": 7,
-      "team_news": 6,
-      "other": 4,
-      "academy": 3
-    },
-    "keywordBoost": 1,
-    "keywordBoosts": {},
-    "terms": [],
-    "phraseBoosts": [
-      { "phrase": "confirmed", "boost": 1 },
-      { "phrase": "official", "boost": 1 }
-    ]
-  }'::jsonb,
   max_posts_per_run integer not null default 3 check (max_posts_per_run between 1 and 10),
-  duplicate_retention_days integer not null default 90 check (duplicate_retention_days between 7 and 3650),
   enabled boolean not null default true,
   groq_api_key text,
   groq_model text,

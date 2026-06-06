@@ -1,5 +1,5 @@
 import { getServiceSupabase } from "@/lib/db/supabase";
-import type { AccountConfig, RelevanceRules } from "@/lib/events/types";
+import type { AccountConfig } from "@/lib/events/types";
 
 type AccountRow = {
   id: string;
@@ -10,9 +10,7 @@ type AccountRow = {
   style: string;
   character_limit: number;
   relevance_threshold: number;
-  relevance_rules: RelevanceRules | null;
   max_posts_per_run: number | null;
-  duplicate_retention_days: number | null;
   enabled: boolean;
   groq_api_key: string | null;
   groq_model: string | null;
@@ -66,9 +64,7 @@ function mapAccount(row: AccountRow): AccountConfig {
     style: row.style,
     characterLimit: row.character_limit,
     relevanceThreshold: row.relevance_threshold,
-    relevanceRules: normalizeRelevanceRules(row.relevance_rules),
     maxPostsPerRun: row.max_posts_per_run ?? 3,
-    duplicateRetentionDays: row.duplicate_retention_days ?? 90,
     enabled: row.enabled,
     groqApiKey: row.groq_api_key,
     groqModel: row.groq_model,
@@ -88,29 +84,5 @@ function mapAccount(row: AccountRow): AccountConfig {
     promptTemplate: row.account_prompts
       ?.filter((prompt) => prompt.active)
       .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())[0]?.prompt_template
-  };
-}
-
-function normalizeRelevanceRules(rules: RelevanceRules | null): RelevanceRules {
-  return {
-    categoryWeights: rules?.categoryWeights ?? {
-      transfer: 10,
-      result: 10,
-      fixture: 8,
-      injury: 8,
-      standing: 7,
-      squad: 7,
-      quote: 7,
-      team_news: 6,
-      other: 4,
-      academy: 3
-    },
-    keywordBoost: rules?.keywordBoost ?? 1,
-    keywordBoosts: rules?.keywordBoosts ?? {},
-    terms: rules?.terms ?? [],
-    phraseBoosts: rules?.phraseBoosts ?? [
-      { phrase: "confirmed", boost: 1 },
-      { phrase: "official", boost: 1 }
-    ]
   };
 }

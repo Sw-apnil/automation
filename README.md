@@ -9,7 +9,7 @@ Production-oriented Next.js 15 app for collecting football events, scoring relev
 - Groq chat completions
 - API-Football and NewsAPI source adapters
 - Buffer publishing through connected Buffer channels
-- GitHub Actions 5-minute scheduler
+- GitHub Actions 15-minute scheduler
 - Docker support
 
 ## Setup
@@ -52,7 +52,7 @@ Open `http://localhost:3000/dashboard`.
 
 `GET /api/cron/every-15-min` runs:
 
-GitHub Actions calls the deployed cron endpoint every 5 minutes. The app then checks each account's UI-configured schedule and only runs accounts that are due. Due accounts fetch News/API-Football events -> normalize events -> score relevance -> skip low-score events before AI -> dedupe by event ID, headline hash, similar headline, and article URL -> select best candidates by relevance, recency, keyword strength, image availability, similarity, and category importance -> generate Groq fan post -> clean/retry weak output -> rotate hashtags -> select image -> queue -> publish due Buffer posts -> record posts and audit logs.
+GitHub Actions calls the deployed cron endpoint every 15 minutes. The app then fetches News/API-Football events -> normalizes events -> scores relevance -> skips low-score events before AI -> dedupes by event ID, headline hash, similar headline, and article URL -> selects best candidates by relevance, recency, keyword strength, image availability, similarity, and category importance -> generates Groq fan post -> cleans/retries weak output -> rotates hashtags -> selects image -> queues -> publishes due Buffer posts -> records posts and audit logs.
 
 If `CRON_SECRET` is set, call the cron endpoint with:
 
@@ -70,9 +70,7 @@ Accounts live in the `accounts` table. Add a new account by inserting a row with
 - `style`
 - `character_limit`
 - `relevance_threshold`
-- `relevance_rules`
 - `max_posts_per_run`
-- `duplicate_retention_days`
 - `buffer_channel_ids`
 - `schedule_interval_minutes`
 - optional `schedule_time_slots`
@@ -82,16 +80,6 @@ Accounts live in the `accounts` table. Add a new account by inserting a row with
 - optional `team_id`, `league_id`, `logo_url`
 
 Prompts live in `account_prompts`, so each account has its own personality without code changes. The account prompt controls voice and style; event fields such as `{title}`, `{description}`, `{category}`, and `{publishedAt}` control the substance.
-
-Relevance rules live in `accounts.relevance_rules`. Users can control:
-
-- category weights, such as transfer/result/injury
-- default keyword boost
-- per-keyword boosts, such as Mbappe or Bellingham
-- terms that force a minimum score
-- phrase boosts, such as confirmed or official
-
-The app no longer hardcodes star players or competition importance. Those decisions belong to each account's rules.
 
 Account API:
 
@@ -111,7 +99,7 @@ Frontend account setup:
 3. Fill account identity, keywords, hashtags, style, prompt, Groq key/model, NewsAPI key, API-Football key, Buffer token, and Buffer channel IDs.
 4. Set `Run every minutes`, for example `15`, `30`, or `60`.
 5. Optionally set exact `Schedule time slots` as comma-separated `HH:MM` values, for example `09:00, 13:30, 21:00`.
-6. Save. GitHub Actions wakes the app every 5 minutes; the app checks these account-level schedule settings and only runs accounts that are due.
+6. Save. GitHub Actions wakes the app every 15 minutes; the app checks these account-level schedule settings and only runs accounts that are due.
 
 ## Image Priority
 
@@ -155,14 +143,13 @@ docker run --env-file .env.local -p 3000:3000 football-social-automation
 4. In GitHub repository settings, add Actions secrets:
    - `APP_URL`: your deployed Vercel URL, for example `https://your-app.vercel.app`
    - `CRON_SECRET`: the same value used in Vercel env vars
-5. GitHub Actions workflow `.github/workflows/every-5-min.yml` calls `/api/cron/every-15-min` every 5 minutes.
+5. GitHub Actions workflow `.github/workflows/every-15-min.yml` calls `/api/cron/every-15-min` every 15 minutes.
 
 Vercel Cron is intentionally not used because the free tier may restrict high-frequency schedules.
 
 ## Operational Notes
 
 - External API responses are cached in `api_cache` to reduce API spend. Fast-moving news and fixtures use shorter 15-minute cache windows; standings and transfers use longer windows.
-- Duplicate marker rows in `published_events` are cleaned per account using `duplicate_retention_days`, default `90`.
 - AI is only called after relevance and duplicate checks pass.
 - Publish failures are retried with backoff using `post_queue.retry_count` and `next_attempt_at`.
 - `audit_logs` records source errors, AI failures, duplicate skips, publish failures, and retry attempts.
