@@ -7,6 +7,7 @@ export function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   if (pathname.startsWith("/api/cron")) return NextResponse.next();
+  if (pathname.startsWith("/api/inngest")) return NextResponse.next();
 
   const auth = request.headers.get("authorization");
   if (!auth?.startsWith("Basic ")) return unauthorized();

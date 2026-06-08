@@ -35,8 +35,15 @@ async function callGroq(prompt: string, account: AccountConfig, apiKey: string) 
       messages: [
         {
           role: "system",
-          content:
-            "You create short social posts for football fan accounts. No markdown, no invented facts, no journalism voice."
+          content: `You write short social media posts for football fan accounts.
+
+Rules that never change:
+- One post per event. No lists, no threads, no markdown.
+- Never invent facts. Only use what the event data provides.
+- Never sound like a journalist or a news bot.
+- React to the event — do not summarize it.
+- No hashtags. They are added separately.
+- Stay within the character limit given in the prompt.`
         },
         { role: "user", content: prompt }
       ],

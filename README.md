@@ -9,7 +9,7 @@ Production-oriented Next.js 15 app for collecting football events, scoring relev
 - Groq chat completions
 - API-Football, GNews, and Guardian source adapters
 - Buffer publishing through connected Buffer channels
-- GitHub Actions 5-minute scheduler
+- Inngest 5-minute scheduler
 - Docker support
 
 ## Setup
@@ -52,12 +52,20 @@ Open `http://localhost:3000/dashboard`.
 
 `GET /api/cron/every-15-min` runs:
 
-GitHub Actions calls the deployed cron endpoint every 5 minutes. The app then fetches News/API-Football events -> normalizes events -> scores relevance -> skips low-score events before AI -> dedupes by event ID, headline hash, similar headline, and article URL -> selects best candidates by relevance, recency, keyword strength, image availability, similarity, and category importance -> generates Groq fan post -> cleans/retries weak output -> rotates hashtags -> selects image -> queues -> publishes due Buffer posts -> records posts and audit logs.
+Inngest calls the deployed `/api/inngest` endpoint every 5 minutes using the `run-football-automation-every-5-minutes` scheduled function. The app then checks each enabled account's `schedule_interval_minutes` and only processes accounts that are due. Due accounts fetch GNews/API-Football events -> normalize events -> score relevance -> skip low-score events before AI -> dedupe by event ID, headline hash, similar headline, and article URL -> select best candidates by relevance, recency, keyword strength, image availability, similarity, and category importance -> generate Groq fan post -> clean/retry weak output -> rotate hashtags -> select image -> queue -> publish due Buffer posts -> record posts and audit logs.
+
+The existing cron endpoint is kept as a manual/fallback trigger:
 
 If `CRON_SECRET` is set, call the cron endpoint with:
 
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" https://your-app.vercel.app/api/cron/every-15-min
+```
+
+Inngest serves functions from:
+
+```bash
+https://your-app.vercel.app/api/inngest
 ```
 
 ## Account Configuration
@@ -149,7 +157,7 @@ Frontend account setup:
 4. Edit `Relevance rules JSON` to decide which categories, keywords, terms, and phrases matter for that account.
 5. Set `Run every minutes`, for example `15`, `30`, or `60`.
 6. Optionally set exact `Schedule time slots` as comma-separated `HH:MM` values, for example `09:00, 13:30, 21:00`.
-7. Save. GitHub Actions wakes the app every 5 minutes; the app checks these account-level schedule settings and only runs accounts that are due.
+7. Save. Inngest wakes the app every 5 minutes; the app checks these account-level schedule settings and only runs accounts that are due.
 
 ## Image Priority
 
@@ -185,17 +193,23 @@ docker build -t football-social-automation .
 docker run --env-file .env.local -p 3000:3000 football-social-automation
 ```
 
-## Vercel + GitHub Actions
+## Vercel + Inngest
 
 1. Import the repo into Vercel.
 2. Add all environment variables from `.env.example`.
 3. Deploy.
-4. In GitHub repository settings, add Actions secrets:
-   - `APP_URL`: your deployed Vercel URL, for example `https://your-app.vercel.app`
-   - `CRON_SECRET`: the same value used in Vercel env vars
-5. GitHub Actions workflow `.github/workflows/every-15-min.yml` calls `/api/cron/every-15-min` every 5 minutes.
+4. Create an Inngest app and add these Vercel environment variables:
+   - `INNGEST_EVENT_KEY`
+   - `INNGEST_SIGNING_KEY`
+5. In Inngest, sync the deployed endpoint:
 
-Vercel Cron is intentionally not used because the free tier may restrict high-frequency schedules.
+```bash
+https://your-app.vercel.app/api/inngest
+```
+
+6. Confirm the function named `Run football automation every 5 minutes` is enabled. It runs on `*/5 * * * *`.
+
+The GitHub Actions workflow is now manual-only and can still call `/api/cron/every-15-min` as an emergency fallback if you keep `APP_URL` and `CRON_SECRET` configured in GitHub repository secrets.
 
 ## Operational Notes
 
