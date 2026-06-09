@@ -130,13 +130,22 @@ export class ApiFootballAdapter implements SourceAdapter {
 
   private async fetchTransfers(account: AccountConfig): Promise<FootballEvent[]> {
     if (!account.teamId) return [];
+
+    const whitelist = await this.fetchSquadWhitelistIds(account);
+
     const payload = await this.request<TransferRow>(
       account,
       `transfers?team=${account.teamId}`,
       `api-football:transfers:${account.slug}`,
       3600
     );
-    return (payload.response ?? []).slice(0, 20).flatMap((row) =>
+
+    let rows = payload.response ?? [];
+    if (whitelist !== null) {
+      rows = rows.filter((row) => whitelist.has(row.player.id));
+    }
+
+    return rows.slice(0, 20).flatMap((row) =>
       (row.transfers ?? []).map((transfer) => ({
         id: `transfer:${row.player.id}:${transfer.date}:${transfer.teams.in?.id ?? transfer.teams.out?.id}`,
         title: `${row.player.name} transfer update`,
@@ -149,6 +158,35 @@ export class ApiFootballAdapter implements SourceAdapter {
         metadata: { player: row.player, transfer }
       }))
     );
+  }
+
+  private async fetchSquadWhitelistIds(account: AccountConfig): Promise<Set<number> | null> {
+    if (!account.teamId) return null;
+
+    const cacheKey = `api-football:squad-whitelist:${account.slug}`;
+    const ttlSeconds = 259200; // 72 hours
+
+    const ids = await cachedJson<number[]>(cacheKey, ttlSeconds, async () => {
+      const url = new URL(`https://v3.football.api-sports.io/players/squads?team=${account.teamId}`);
+      const apiKey = this.apiKey(account);
+      if (!apiKey) return [];
+      
+      const response = await fetch(url, {
+        headers: { "x-apisports-key": apiKey }
+      });
+      if (!response.ok) throw new Error(`API-Football failed: ${response.status} ${await response.text()}`);
+      
+      const payload = await response.json() as ApiFootballEnvelope<SquadRow>;
+      const playerIds = new Set<number>();
+      for (const row of payload.response ?? []) {
+        for (const player of row.players ?? []) {
+          if (player.id) playerIds.add(player.id);
+        }
+      }
+      return Array.from(playerIds);
+    });
+
+    return new Set(ids);
   }
 
   private async fetchSquad(account: AccountConfig): Promise<FootballEvent[]> {
