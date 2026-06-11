@@ -9,14 +9,15 @@ export class ApiFootballAdapter implements SourceAdapter {
 
   async fetch(account: AccountConfig): Promise<FootballEvent[]> {
     if (!this.apiKey(account)) return [];
-    const [fixtures, injuries, standings, transfers, squad] = await Promise.all([
+    const [live, fixtures, injuries, standings, transfers, squad] = await Promise.all([
+      this.fetchLiveScores(account),
       this.fetchFixtures(account),
       this.fetchInjuries(account),
       this.fetchStandings(account),
       this.fetchTransfers(account),
       this.fetchSquad(account)
     ]);
-    return [...fixtures, ...injuries, ...standings, ...transfers, ...squad];
+    return [...live, ...fixtures, ...injuries, ...standings, ...transfers, ...squad];
   }
 
   private async request<T>(account: AccountConfig, path: string, cacheKey: string, ttlSeconds: number): Promise<ApiFootballEnvelope<T>> {
@@ -34,6 +35,38 @@ export class ApiFootballAdapter implements SourceAdapter {
 
   private apiKey(account: AccountConfig) {
     return account.apiFootballKey;
+  }
+
+  private async fetchLiveScores(account: AccountConfig): Promise<FootballEvent[]> {
+    if (!account.teamId && !account.leagueId) return [];
+
+    const scope = account.teamId ? `team=${account.teamId}` : `league=${account.leagueId}`;
+    const payload = await this.request<FixtureRow>(
+      account,
+      `fixtures?live=all&${scope}`,
+      `api-football:live:${account.slug}`,
+      60
+    );
+
+    return (payload.response ?? []).map((row) => {
+      const status = row.fixture.status.short;
+      const home = row.teams.home.name;
+      const away = row.teams.away.name;
+      const score = `${row.goals.home ?? 0}-${row.goals.away ?? 0}`;
+      const elapsed = row.fixture.status.elapsed ? ` (${row.fixture.status.elapsed}')` : "";
+
+      return {
+        id: `live:${row.fixture.id}:${status}:${row.goals.home}-${row.goals.away}`,
+        title: `LIVE: ${home} ${score} ${away}`,
+        description: `${row.league.name} fixture status: ${row.fixture.status.long}${elapsed}`,
+        imageUrl: row.teams.home.logo ?? row.teams.away.logo ?? account.logoUrl ?? null,
+        source: this.name,
+        publishedAt: new Date().toISOString(),
+        category: "result" as const,
+        accountId: account.id,
+        metadata: row as unknown as Record<string, unknown>
+      };
+    });
   }
 
   private async fetchFixtures(account: AccountConfig): Promise<FootballEvent[]> {
@@ -212,7 +245,7 @@ export class ApiFootballAdapter implements SourceAdapter {
 }
 
 type FixtureRow = {
-  fixture: { id: number; date: string; status: { short: string; long: string } };
+  fixture: { id: number; date: string; status: { short: string; long: string; elapsed?: number } };
   league: { name: string };
   teams: { home: { name: string; logo?: string }; away: { name: string; logo?: string } };
   goals: { home: number | null; away: number | null };
