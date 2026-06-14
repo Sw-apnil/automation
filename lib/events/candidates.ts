@@ -11,8 +11,15 @@ const categoryImportance: Record<FootballEvent["category"], number> = {
   quote: 7,
   standing: 7,
   team_news: 6,
-  other: 4,
-  academy: 3
+  academy: 3,
+  contract: 9,
+  manager: 9,
+  official_statement: 8,
+  tournament_news: 8,
+  engagement: 0,
+  opinion: 2,
+  meme: 0,
+  other: 4
 };
 
 export type CandidateEvent = FootballEvent & {

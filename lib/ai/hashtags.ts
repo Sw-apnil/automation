@@ -7,9 +7,16 @@ const categoryTags: Record<FootballEvent["category"], string[]> = {
   standing: ["#LeagueTable", "#Football"],
   injury: ["#InjuryUpdate", "#Football"],
   squad: ["#SquadNews", "#Lineup"],
-  team_news: ["#FootballNews", "#FanTalk"],
-  quote: ["#PressConference", "#Football"],
-  academy: ["#Academy", "#FutureStars"],
+  team_news: ["#Football", "#TeamNews"],
+  quote: ["#Football", "#Quotes"],
+  academy: ["#Football", "#Academy"],
+  contract: ["#Football", "#Contract", "#Transfers"],
+  manager: ["#Football", "#Manager"],
+  official_statement: ["#Football", "#Official"],
+  tournament_news: ["#Football", "#Tournament"],
+  engagement: [],
+  opinion: ["#Football"],
+  meme: [],
   other: ["#Football"]
 };
 

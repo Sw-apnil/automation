@@ -121,6 +121,7 @@ export default async function AccountsPage() {
                         <ApiStatus configured={account.gnews_api_key} label="GNews" size="xs" />
                         <ApiStatus configured={account.guardian_api_key} label="Guardian" size="xs" />
                         <ApiStatus configured={account.api_football_key} label="Football API" size="xs" />
+                        <ApiStatus configured={account.twitter_username != null && account.twitter_username !== ""} label="Twitter/X" size="xs" />
                       </div>
                     </TableCell>
                     <TableCell className="max-w-[160px]">
@@ -173,6 +174,7 @@ export default async function AccountsPage() {
                 <Field label="Team ID (API-Football)" name="teamId" type="number" />
                 <Field label="League ID (API-Football)" name="leagueId" type="number" />
                 <Field label="Logo URL" name="logoUrl" placeholder="https://..." />
+                <Field label="Twitter/X Username" name="twitterUsername" placeholder="FabrizioRomano" />
               </div>
             </FormSection>
 
@@ -182,6 +184,7 @@ export default async function AccountsPage() {
                 <Field label="Temperature" name="groqTemperature" type="number" step="0.05" min={0} max={2} defaultValue={0.85} />
                 <Field label="Max Tokens" name="groqMaxTokens" type="number" min={32} max={1000} defaultValue={180} />
                 <Field label="Run Every (minutes)" name="scheduleIntervalMinutes" type="number" min={5} max={1440} defaultValue={15} />
+                <Field label="Twitter Min Confidence" name="twitterMinConfidence" type="number" min={0} max={100} defaultValue={70} />
               </div>
             </FormSection>
 
@@ -216,12 +219,20 @@ export default async function AccountsPage() {
               <p className="text-xs font-semibold text-foreground/70 uppercase tracking-wide">Data Sources</p>
               <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
+                  <input type="checkbox" name="apiFootballEnabled" defaultChecked className="h-4 w-4 rounded accent-emerald-500" />
+                  <span>API-Football enabled</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
                   <input type="checkbox" name="gnewsEnabled" defaultChecked className="h-4 w-4 rounded accent-emerald-500" />
                   <span>GNews enabled</span>
                 </label>
                 <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
                   <input type="checkbox" name="guardianEnabled" defaultChecked className="h-4 w-4 rounded accent-emerald-500" />
                   <span>Guardian fallback enabled</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
+                  <input type="checkbox" name="twitterEnabled" defaultChecked={false} className="h-4 w-4 rounded accent-emerald-500" />
+                  <span>Twitter/X enabled</span>
                 </label>
                 <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
                   <input type="checkbox" name="enabled" defaultChecked className="h-4 w-4 rounded accent-emerald-500" />
@@ -301,6 +312,7 @@ export default async function AccountsPage() {
                       <Field label="Team ID" name="teamId" type="number" defaultValue={account.team_id ?? ""} />
                       <Field label="League ID" name="leagueId" type="number" defaultValue={account.league_id ?? ""} />
                       <Field label="Logo URL" name="logoUrl" defaultValue={account.logo_url ?? ""} />
+                      <Field label="Twitter/X Username" name="twitterUsername" defaultValue={account.twitter_username ?? ""} />
                     </div>
 
                     <div className="grid gap-3">
@@ -342,11 +354,18 @@ export default async function AccountsPage() {
                       <SecretField label="API-Football Key" name="apiFootballKey" configured={Boolean(account.api_football_key)} clearName="clearApiFootballKey" />
                     </div>
 
-                    <Field label="Run Every (minutes)" name="scheduleIntervalMinutes" type="number" min={5} max={1440} defaultValue={account.schedule_interval_minutes ?? 15} />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Run Every (minutes)" name="scheduleIntervalMinutes" type="number" min={5} max={1440} defaultValue={account.schedule_interval_minutes ?? 15} />
+                      <Field label="Twitter Min Confidence" name="twitterMinConfidence" type="number" min={0} max={100} defaultValue={account.twitter_min_confidence ?? 70} />
+                    </div>
 
                     <div className="rounded-xl border border-border/40 bg-muted/20 p-4 space-y-2">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground/50">Toggle Settings</p>
-                      <div className="flex flex-wrap gap-4">
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
+                          <input type="checkbox" name="apiFootballEnabled" defaultChecked={account.api_football_enabled ?? true} className="h-4 w-4 rounded accent-emerald-500" />
+                          <span>API-Football enabled</span>
+                        </label>
                         <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
                           <input type="checkbox" name="enabled" defaultChecked={account.enabled} className="h-4 w-4 rounded accent-emerald-500" />
                           <span>Account enabled</span>
@@ -358,6 +377,10 @@ export default async function AccountsPage() {
                         <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
                           <input type="checkbox" name="guardianEnabled" defaultChecked={account.guardian_enabled ?? true} className="h-4 w-4 rounded accent-emerald-500" />
                           <span>Guardian fallback</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
+                          <input type="checkbox" name="twitterEnabled" defaultChecked={account.twitter_enabled ?? false} className="h-4 w-4 rounded accent-emerald-500" />
+                          <span>Twitter/X enabled</span>
                         </label>
                       </div>
                     </div>

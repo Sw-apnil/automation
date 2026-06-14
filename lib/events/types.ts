@@ -8,6 +8,13 @@ export type EventCategory =
   | "team_news"
   | "quote"
   | "academy"
+  | "contract"
+  | "manager"
+  | "official_statement"
+  | "tournament_news"
+  | "engagement"
+  | "opinion"
+  | "meme"
   | "other";
 
 export type FootballEvent = {
@@ -15,7 +22,7 @@ export type FootballEvent = {
   title: string;
   description?: string | null;
   imageUrl?: string | null;
-  source: "api-football" | "gnews" | "guardian";
+  source: "api-football" | "gnews" | "guardian" | "twitter";
   sourceUrl?: string | null;
   publishedAt: string;
   category: EventCategory;
@@ -53,6 +60,7 @@ export type AccountConfig = {
   scheduleIntervalMinutes: number;
   scheduleTimeSlots: string[];
   lastRunAt?: string | null;
+  apiFootballEnabled: boolean;
   gnewsApiKey?: string | null;
   guardianApiKey?: string | null;
   gnewsEnabled: boolean;
@@ -62,6 +70,9 @@ export type AccountConfig = {
   leagueId?: number | null;
   logoUrl?: string | null;
   promptTemplate?: string | null;
+  twitterEnabled: boolean;
+  twitterUsername?: string | null;
+  twitterMinConfidence: number;
 };
 
 export type QueuedPost = {

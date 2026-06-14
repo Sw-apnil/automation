@@ -1,6 +1,7 @@
 import { ApiFootballAdapter } from "@/lib/sources/api-football";
 import { GNewsAdapter } from "@/lib/sources/gnews";
 import { GuardianAdapter } from "@/lib/sources/guardian";
+import { TwitterAdapter } from "@/lib/sources/twitter/adapter";
 import type { AccountConfig, FootballEvent } from "@/lib/events/types";
 import type { SourceAdapter } from "@/lib/sources/source";
 import { scoreEvent } from "@/lib/events/relevance";
@@ -17,6 +18,7 @@ import { auditLog } from "@/lib/logging/audit";
 const apiFootballAdapter = new ApiFootballAdapter();
 const gnewsAdapter = new GNewsAdapter();
 const guardianAdapter = new GuardianAdapter();
+const twitterAdapter = new TwitterAdapter();
 const minimumGNewsEvents = 5;
 
 export type PipelineResult = {
@@ -78,11 +80,17 @@ async function validateAccountConfig(account: AccountConfig) {
     !account.groqModel ? "groq_model" : null,
     !account.bufferAccessToken ? "buffer_access_token" : null,
     account.bufferChannelIds.length === 0 ? "buffer_channel_ids" : null,
-    !account.apiFootballKey ? "api_football_key" : null,
+    account.apiFootballEnabled && !account.apiFootballKey ? "api_football_key" : null,
     account.gnewsEnabled && !account.gnewsApiKey ? "gnews_api_key" : null,
     account.guardianEnabled && !account.guardianApiKey ? "guardian_api_key" : null,
+    account.twitterEnabled && !account.twitterUsername ? "twitter_username" : null,
     !account.promptTemplate ? "active account prompt" : null
   ].filter(Boolean);
+
+  const hasSource = account.apiFootballEnabled || account.gnewsEnabled || account.guardianEnabled || account.twitterEnabled;
+  if (!hasSource) {
+    missing.push("at least one data source enabled");
+  }
 
   if (missing.length === 0) return true;
 
@@ -183,12 +191,15 @@ async function processAccount(account: AccountConfig) {
 }
 
 async function fetchAccountEvents(account: AccountConfig) {
-  const [apiFootballEvents, gnewsEvents] = await Promise.all([fetchFromAdapter(apiFootballAdapter, account), fetchFromAdapter(gnewsAdapter, account)]);
-  const sources: { source: SourceAdapter["name"]; events: FootballEvent[] }[] = [
-    { source: apiFootballAdapter.name, events: apiFootballEvents },
-    { source: gnewsAdapter.name, events: gnewsEvents }
-  ];
+  const tasks: Promise<{ source: SourceAdapter["name"]; events: FootballEvent[] }>[] = [];
+  if (account.apiFootballEnabled) tasks.push(fetchFromAdapter(apiFootballAdapter, account).then(e => ({ source: apiFootballAdapter.name, events: e })));
+  if (account.gnewsEnabled) tasks.push(fetchFromAdapter(gnewsAdapter, account).then(e => ({ source: gnewsAdapter.name, events: e })));
+  if (account.twitterEnabled) tasks.push(fetchFromAdapter(twitterAdapter, account).then(e => ({ source: twitterAdapter.name, events: e })));
 
+  const sources = await Promise.all(tasks);
+  
+  // Flatten for guardian logic
+  const gnewsEvents = sources.find(s => s.source === "gnews")?.events || [];
   if (account.guardianEnabled && gnewsEvents.length < minimumGNewsEvents) {
     sources.push({ source: guardianAdapter.name, events: await fetchFromAdapter(guardianAdapter, account) });
   }

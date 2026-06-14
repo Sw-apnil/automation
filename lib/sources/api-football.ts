@@ -8,7 +8,7 @@ export class ApiFootballAdapter implements SourceAdapter {
   name = "api-football" as const;
 
   async fetch(account: AccountConfig): Promise<FootballEvent[]> {
-    if (!this.apiKey(account)) return [];
+    if (!account.apiFootballEnabled || !this.apiKey(account)) return [];
     const [live, fixtures, injuries, standings, transfers, squad] = await Promise.all([
       this.fetchLiveScores(account),
       this.fetchFixtures(account),

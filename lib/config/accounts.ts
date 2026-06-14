@@ -28,10 +28,14 @@ type AccountRow = {
   guardian_api_key: string | null;
   gnews_enabled: boolean | null;
   guardian_enabled: boolean | null;
+  api_football_enabled: boolean | null;
   api_football_key: string | null;
   team_id: number | null;
   league_id: number | null;
   logo_url: string | null;
+  twitter_enabled: boolean | null;
+  twitter_username: string | null;
+  twitter_min_confidence: number | null;
   account_prompts?: { prompt_template: string; active: boolean; created_at?: string }[];
 };
 
@@ -85,10 +89,14 @@ function mapAccount(row: AccountRow): AccountConfig {
     guardianApiKey: row.guardian_api_key,
     gnewsEnabled: row.gnews_enabled ?? true,
     guardianEnabled: row.guardian_enabled ?? true,
+    apiFootballEnabled: row.api_football_enabled ?? true,
     apiFootballKey: row.api_football_key,
     teamId: row.team_id,
     leagueId: row.league_id,
     logoUrl: row.logo_url,
+    twitterEnabled: row.twitter_enabled ?? false,
+    twitterUsername: row.twitter_username,
+    twitterMinConfidence: row.twitter_min_confidence ?? 70,
     promptTemplate: row.account_prompts
       ?.filter((prompt) => prompt.active)
       .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())[0]?.prompt_template

@@ -19,6 +19,13 @@ const categoryConfig: Record<string, { variant: CategoryVariant; label: string }
   team_news: { variant: "warning", label: "Team News" },
   quote: { variant: "ghost", label: "Quote" },
   academy: { variant: "ghost", label: "Academy" },
+  contract: { variant: "success", label: "Contract" },
+  manager: { variant: "warning", label: "Manager" },
+  official_statement: { variant: "info", label: "Official" },
+  tournament_news: { variant: "purple", label: "Tournament" },
+  engagement: { variant: "ghost", label: "Engagement" },
+  opinion: { variant: "ghost", label: "Opinion" },
+  meme: { variant: "ghost", label: "Meme" },
   other: { variant: "ghost", label: "Other" }
 };
 
@@ -26,7 +33,8 @@ const sourceConfig: Record<string, { label: string; color: string }> = {
   gnews: { label: "GNews", color: "text-blue-400" },
   guardian: { label: "Guardian", color: "text-violet-400" },
   "api-football": { label: "API-Football", color: "text-emerald-400" },
-  apifootball: { label: "API-Football", color: "text-emerald-400" }
+  apifootball: { label: "API-Football", color: "text-emerald-400" },
+  twitter: { label: "Twitter/X", color: "text-sky-400" }
 };
 
 function getScoreBadge(score: number) {
@@ -76,7 +84,7 @@ export default async function SourcesPage() {
           {events.length === 0 ? (
             <EmptyState
               title="No intelligence collected yet"
-              description="Run the pipeline to start collecting football events from API-Football, GNews, and The Guardian."
+              description="Run the pipeline to start collecting football events from API-Football, GNews, The Guardian, and Twitter/X."
               icon={<AlertTriangle className="h-6 w-6" />}
               className="py-12"
             />

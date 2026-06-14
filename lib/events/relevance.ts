@@ -10,6 +10,13 @@ const defaultCategoryWeights: Record<EventCategory, number> = {
   team_news: 6,
   quote: 7,
   academy: 3,
+  contract: 9,
+  manager: 9,
+  official_statement: 8,
+  tournament_news: 8,
+  engagement: 0,
+  opinion: 2,
+  meme: 0,
   other: 4
 };
 

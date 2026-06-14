@@ -35,10 +35,14 @@ export async function updateAccountSettingsAction(formData: FormData) {
     guardian_api_key: secretValue(formData, "guardianApiKey", "clearGuardianApiKey"),
     gnews_enabled: formData.get("gnewsEnabled") === "on",
     guardian_enabled: formData.get("guardianEnabled") === "on",
+    api_football_enabled: formData.get("apiFootballEnabled") === "on",
     api_football_key: secretValue(formData, "apiFootballKey", "clearApiFootballKey"),
     team_id: nullableNumberValue(formData, "teamId"),
     league_id: nullableNumberValue(formData, "leagueId"),
-    logo_url: nullableTextValue(formData, "logoUrl")
+    logo_url: nullableTextValue(formData, "logoUrl"),
+    twitter_enabled: formData.get("twitterEnabled") === "on",
+    twitter_username: nullableTextValue(formData, "twitterUsername"),
+    twitter_min_confidence: numberValue(formData, "twitterMinConfidence")
   };
 
   const cleanedPatch = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
@@ -91,10 +95,14 @@ export async function createAccountAction(formData: FormData) {
       guardian_api_key: requiredTextValue(formData, "guardianApiKey"),
       gnews_enabled: formData.get("gnewsEnabled") === "on",
       guardian_enabled: formData.get("guardianEnabled") === "on",
+      api_football_enabled: formData.get("apiFootballEnabled") === "on",
       api_football_key: requiredTextValue(formData, "apiFootballKey"),
       team_id: nullableNumberValue(formData, "teamId"),
       league_id: nullableNumberValue(formData, "leagueId"),
-      logo_url: nullableTextValue(formData, "logoUrl")
+      logo_url: nullableTextValue(formData, "logoUrl"),
+      twitter_enabled: formData.get("twitterEnabled") === "on",
+      twitter_username: nullableTextValue(formData, "twitterUsername"),
+      twitter_min_confidence: numberValue(formData, "twitterMinConfidence") ?? 70
     })
     .select("id")
     .single();
